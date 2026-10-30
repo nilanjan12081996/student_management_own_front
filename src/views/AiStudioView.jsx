@@ -13,12 +13,25 @@ import {
   Lightbulb,
   Cpu,
   Layers,
-  ArrowRight
+  ArrowRight,
+  Compass,
+  AlertTriangle
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useToast } from '../components/Toast';
 
 export const AiStudioView = ({ user }) => {
+  const role = user?.role?.toLowerCase();
+  if (role === 'student') {
+    return (
+      <div className="card" style={{ padding: '2.5rem', textAlign: 'center', marginTop: '2rem' }}>
+        <h2 style={{ color: 'var(--text-main)', marginBottom: '0.75rem' }}>Access Restricted</h2>
+        <p style={{ color: 'var(--text-muted)' }}>
+          AI Academy Studio is reserved exclusively for tutors and administrators.
+        </p>
+      </div>
+    );
+  }
   const [activeSubTab, setActiveSubTab] = useState('mcq'); // 'mcq' | 'notes' | 'mentor'
   const [aiStatus, setAiStatus] = useState(null);
   const [statusLoading, setStatusLoading] = useState(true);
@@ -26,6 +39,7 @@ export const AiStudioView = ({ user }) => {
   // MCQ Generator State
   const [mcqTopic, setMcqTopic] = useState('JavaScript Asynchronous Programming & Promises');
   const [mcqDifficulty, setMcqDifficulty] = useState('Intermediate');
+  const [mcqCognitiveLayer, setMcqCognitiveLayer] = useState('Multi-Layer Balanced');
   const [mcqCount, setMcqCount] = useState(4);
   const [mcqBatch, setMcqBatch] = useState('CS 101');
   const [mcqLoading, setMcqLoading] = useState(false);
@@ -48,6 +62,11 @@ export const AiStudioView = ({ user }) => {
 
   const [copiedId, setCopiedId] = useState(null);
   const { success, error } = useToast();
+
+  // Sync mentor student name when user prop changes (e.g. after login)
+  useEffect(() => {
+    if (user?.name) setMentorStudent(user.name);
+  }, [user?.name]);
 
   const fetchAiHealth = async () => {
     setStatusLoading(true);
@@ -79,7 +98,8 @@ export const AiStudioView = ({ user }) => {
         topic: mcqTopic.trim(),
         difficulty: mcqDifficulty,
         count: Number(mcqCount),
-        batch_name: mcqBatch
+        batch_name: mcqBatch,
+        cognitive_layer: mcqCognitiveLayer
       });
 
       if (res && res.questions) {
@@ -323,6 +343,21 @@ export const AiStudioView = ({ user }) => {
                 </select>
               </div>
 
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label className="form-label">Cognitive Learning Layer</label>
+                <select
+                  className="form-control"
+                  value={mcqCognitiveLayer}
+                  onChange={(e) => setMcqCognitiveLayer(e.target.value)}
+                >
+                  <option value="Multi-Layer Balanced">Multi-Layer Balanced (All 4 Layers)</option>
+                  <option value="Concept Foundation & Syntax">Layer 1: Concept Foundation & Syntax</option>
+                  <option value="Execution Dynamics & Flow">Layer 2: Execution Dynamics & Flow</option>
+                  <option value="Diagnostic Debugging & Tracing">Layer 3: Diagnostic Debugging & Tracing</option>
+                  <option value="Edge Cases & Trap Detection">Layer 4: Edge Cases & Trap Detection</option>
+                </select>
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.25rem' }}>
                 <div className="form-group">
                   <label className="form-label">Question Count</label>
@@ -428,8 +463,14 @@ export const AiStudioView = ({ user }) => {
                       >
                         {idx + 1}
                       </span>
-                      <div style={{ fontWeight: 600, fontSize: '0.975rem', color: 'var(--text-main)' }}>
-                        {q.question_text || q.question}
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.35rem', flexWrap: 'wrap' }}>
+                          <span className="badge badge-primary">{q.cognitive_layer || 'Multi-Layer'}</span>
+                          {q.topic_tag && <span className="badge badge-secondary">{q.topic_tag}</span>}
+                        </div>
+                        <div style={{ fontWeight: 600, fontSize: '0.975rem', color: 'var(--text-main)' }}>
+                          {q.question_text || q.question}
+                        </div>
                       </div>
                     </div>
 
@@ -762,6 +803,43 @@ export const AiStudioView = ({ user }) => {
                           <li key={rIdx}>{rec}</li>
                         ))}
                       </ul>
+                    </div>
+                  )}
+
+                  {mentorAnalysis.focus_guidance && mentorAnalysis.focus_guidance.length > 0 && (
+                    <div style={{ marginTop: '0.5rem' }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.925rem', marginBottom: '0.5rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <Compass size={16} color="var(--primary)" />
+                        Topic Focus Guidance Based On Marks:
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {mentorAnalysis.focus_guidance.map((fg, fIdx) => (
+                          <div
+                            key={fIdx}
+                            style={{
+                              padding: '0.75rem',
+                              borderRadius: 'var(--radius-sm)',
+                              background: fg.urgency?.toLowerCase().includes('high') ? 'rgba(239, 68, 68, 0.08)' : 'rgba(245, 158, 11, 0.08)',
+                              border: `1px solid ${fg.urgency?.toLowerCase().includes('high') ? 'rgba(239, 68, 68, 0.25)' : 'rgba(245, 158, 11, 0.25)'}`
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                              <strong style={{ fontSize: '0.9rem' }}>{fg.topic}</strong>
+                              <span
+                                className="badge"
+                                style={{
+                                  background: fg.urgency?.toLowerCase().includes('high') ? 'var(--danger)' : 'var(--warning)',
+                                  color: '#fff',
+                                  fontSize: '0.75rem'
+                                }}
+                              >
+                                {fg.urgency}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{fg.guidance}</div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>

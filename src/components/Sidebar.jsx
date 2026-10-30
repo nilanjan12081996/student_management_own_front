@@ -12,7 +12,8 @@ import {
   LogOut,
   ShieldCheck,
   Building2,
-  Sparkles
+  Sparkles,
+  TrendingUp
 } from 'lucide-react';
 
 export const Sidebar = ({
@@ -58,7 +59,6 @@ export const Sidebar = ({
           }
         ]
       : []),
-,
     {
       id: 'quizzes',
       label: 'Quiz Studio',
@@ -66,17 +66,27 @@ export const Sidebar = ({
       badge: counts.quizzes
     },
     {
+      id: 'progress',
+      label: isStaff ? 'Student Progress' : 'My Progress & Focus',
+      icon: TrendingUp,
+      badge: 'AI'
+    },
+    {
       id: 'notes',
       label: 'Study Notes',
       icon: BookOpen,
       badge: counts.notes
     },
-    {
-      id: 'ai-studio',
-      label: 'AI Academy Studio',
-      icon: Sparkles,
-      badge: 'AI'
-    }
+    ...(isStaff
+      ? [
+          {
+            id: 'ai-studio',
+            label: 'AI Academy Studio',
+            icon: Sparkles,
+            badge: 'AI'
+          }
+        ]
+      : [])
   ];
 
   const handleNavClick = (id) => {
