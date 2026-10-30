@@ -8,7 +8,7 @@ import { NotesView } from './views/NotesView';
 import { UsersView } from './views/UsersView';
 import { QuizzesView } from './views/QuizzesView';
 import { BatchesView } from './views/BatchesView';
-
+import { ProgressView } from './views/ProgressView';
 import { AiStudioView } from './views/AiStudioView';
 import { LoginView } from './views/LoginView';
 import { api, getDeviceId } from './services/api';
@@ -135,8 +135,18 @@ function App() {
                   />
 
                   <Route path="/quizzes" element={<QuizzesView user={adminUser} />} />
+                  <Route path="/progress" element={<ProgressView user={adminUser} />} />
                   <Route path="/notes" element={<NotesView user={adminUser} />} />
-                  <Route path="/ai-studio" element={<AiStudioView user={adminUser} />} />
+                  <Route
+                    path="/ai-studio"
+                    element={
+                      isStaff ? (
+                        <AiStudioView user={adminUser} />
+                      ) : (
+                        <Navigate to="/dashboard" replace />
+                      )
+                    }
+                  />
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
               </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   BookOpen,
   Plus,
@@ -15,7 +16,10 @@ import {
   GraduationCap,
   Layers,
   ShieldCheck,
-  Lock
+  Lock,
+  Compass,
+  Sparkles,
+  X
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useToast } from '../components/Toast';
@@ -23,16 +27,25 @@ import { Modal } from '../components/Modal';
 import { ConfirmModal } from '../components/ConfirmModal';
 
 export const NotesView = ({ user }) => {
+  const location = useLocation();
   const isAdmin = user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'superadmin';
   const isStudent = user?.role?.toLowerCase() === 'student';
 
   const [notes, setNotes] = useState([]);
   const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(location.state?.filterTopic || '');
+  const [guidedTopic, setGuidedTopic] = useState(location.state?.filterTopic || null);
   const [classFilter, setClassFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [batchFilter, setBatchFilter] = useState('all');
+
+  useEffect(() => {
+    if (location.state?.filterTopic) {
+      setSearchTerm(location.state.filterTopic);
+      setGuidedTopic(location.state.filterTopic);
+    }
+  }, [location.state]);
 
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -278,6 +291,47 @@ export const NotesView = ({ user }) => {
             <Lock size={12} />
             Cohort Protected
           </span>
+        </div>
+      )}
+
+      {/* Guided Revision Alert from Quiz Performance */}
+      {guidedTopic && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.08))',
+            border: '1px solid rgba(99, 102, 241, 0.35)',
+            borderRadius: 'var(--radius-md)',
+            padding: '0.85rem 1.25rem',
+            marginBottom: '1.25rem',
+            gap: '1rem',
+            flexWrap: 'wrap'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <Compass size={20} color="var(--primary)" />
+            <div>
+              <span style={{ fontWeight: 700, color: 'var(--text-main)', fontSize: '0.925rem' }}>
+                Guided Study Focus:
+              </span>{' '}
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                Filtering notes recommended by your AI quiz diagnostic for <strong>"{guidedTopic}"</strong>
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setGuidedTopic(null);
+              setSearchTerm('');
+            }}
+            className="btn btn-secondary btn-sm"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+          >
+            <X size={14} />
+            Show All Notes
+          </button>
         </div>
       )}
 
