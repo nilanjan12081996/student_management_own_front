@@ -415,3 +415,4 @@ export const ProfileModal = ({ isOpen, onClose, user }) => {
     </div>
   );
 };
+

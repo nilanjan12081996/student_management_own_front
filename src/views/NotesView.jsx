@@ -19,6 +19,7 @@ import {
   Lock,
   Compass,
   Sparkles,
+  Download,
   X
 } from 'lucide-react';
 import { api } from '../services/api';
