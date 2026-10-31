@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layers, Plus, Search, RefreshCw, Users, Key, Copy, Check } from 'lucide-react';
+import { Layers, Plus, Search, RefreshCw, Users, Key, Copy, Check, Edit2 } from 'lucide-react';
 import { api } from '../services/api';
 import { Modal } from '../components/Modal';
 
@@ -9,19 +9,31 @@ export const BatchesView = ({ user }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [copiedCode, setCopiedCode] = useState(null);
 
+  // Create Batch state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     subject: 'Computer Science'
   });
 
+  // Edit Batch state
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingBatch, setEditingBatch] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    subject: ''
+  });
+  const [editLoading, setEditLoading] = useState(false);
+
   const fetchBatches = async () => {
     setLoading(true);
     try {
       const data = await api.getBatchesByOrganization(user?.organization_id || 1);
-      setBatches(data);
+      // Strictly show only real API batches, never empty nulls
+      setBatches(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error(err);
+      console.error('Failed to load batches:', err);
+      setBatches([]);
     } finally {
       setLoading(false);
     }
@@ -33,7 +45,7 @@ export const BatchesView = ({ user }) => {
 
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name) return;
+    if (!formData.name.trim()) return;
 
     try {
       await api.createBatch({
@@ -44,7 +56,38 @@ export const BatchesView = ({ user }) => {
       setFormData({ name: '', subject: 'Computer Science' });
       fetchBatches();
     } catch (err) {
-      console.error(err);
+      console.error('Create Batch failed:', err);
+    }
+  };
+
+  const handleOpenEdit = (batch) => {
+    setEditingBatch(batch);
+    setEditFormData({
+      name: batch.name || '',
+      subject: batch.subject || ''
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    if (!editingBatch || !editFormData.name.trim()) return;
+
+    setEditLoading(true);
+    try {
+      await api.updateBatch(editingBatch.id, {
+        organization_id: editingBatch.organization_id || user?.organization_id || 1,
+        name: editFormData.name.trim(),
+        subject: editFormData.subject.trim(),
+        join_code: editingBatch.join_code
+      });
+      setIsEditModalOpen(false);
+      setEditingBatch(null);
+      fetchBatches();
+    } catch (err) {
+      console.error('Update Batch failed:', err);
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -95,7 +138,9 @@ export const BatchesView = ({ user }) => {
 
       {/* Batches Grid */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '3rem' }}>Loading batches...</div>
+        <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+          Loading batches from database...
+        </div>
       ) : filteredBatches.length === 0 ? (
         <div className="card">
           <div className="empty-state">
@@ -103,7 +148,20 @@ export const BatchesView = ({ user }) => {
               <Layers size={28} />
             </div>
             <div className="empty-title">No Batches Created Yet</div>
-            <div className="empty-text">Create your first student cohort to generate invite codes.</div>
+            <div className="empty-text">
+              {searchTerm
+                ? 'No batches matched your search query.'
+                : 'Create your first student cohort to generate invite codes.'}
+            </div>
+            {!searchTerm && (
+              <button
+                onClick={() => setIsAddModalOpen(true)}
+                className="btn btn-primary"
+                style={{ marginTop: '1rem' }}
+              >
+                <Plus size={16} /> Create First Batch
+              </button>
+            )}
           </div>
         </div>
       ) : (
@@ -111,15 +169,26 @@ export const BatchesView = ({ user }) => {
           {filteredBatches.map((batch) => (
             <div key={batch.id} className="card card-interactive">
               <div>
-                <span className="badge badge-primary" style={{ marginBottom: '0.75rem' }}>
-                  {batch.subject || 'General'}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                  <span className="badge badge-primary">
+                    {batch.subject || 'General'}
+                  </span>
+                  <button
+                    className="btn-icon btn-ghost btn-sm"
+                    onClick={() => handleOpenEdit(batch)}
+                    title="Change Batch Name"
+                    aria-label="Edit Batch"
+                    style={{ padding: '0.3rem' }}
+                  >
+                    <Edit2 size={16} color="var(--primary)" />
+                  </button>
+                </div>
                 <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '0.5rem' }}>
                   {batch.name}
                 </h3>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
                   <Users size={15} color="var(--primary)" />
-                  <span>{batch.student_count || 12} Enrolled Students</span>
+                  <span>{batch.student_count || 0} Enrolled Students</span>
                 </div>
               </div>
 
@@ -129,27 +198,38 @@ export const BatchesView = ({ user }) => {
                   borderTop: '1px solid var(--border-subtle)',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'space-between'
+                  justifyContent: 'space-between',
+                  gap: '0.5rem',
+                  flexWrap: 'wrap'
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.825rem' }}>
                   <Key size={14} color="var(--warning)" />
                   <span style={{ fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{batch.join_code}</span>
                 </div>
-                <button
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => handleCopyCode(batch.join_code)}
-                >
-                  {copiedCode === batch.join_code ? (
-                    <>
-                      <Check size={14} color="var(--success)" /> Copied
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={14} /> Copy Code
-                    </>
-                  )}
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleOpenEdit(batch)}
+                    title="Change Batch Name"
+                  >
+                    <Edit2 size={13} /> Rename
+                  </button>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleCopyCode(batch.join_code)}
+                  >
+                    {copiedCode === batch.join_code ? (
+                      <>
+                        <Check size={14} color="var(--success)" /> Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={14} /> Copy Code
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -182,6 +262,7 @@ export const BatchesView = ({ user }) => {
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
+              autoFocus
             />
           </div>
 
@@ -193,6 +274,49 @@ export const BatchesView = ({ user }) => {
               placeholder="e.g. Computer Science"
               value={formData.subject}
               onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+            />
+          </div>
+        </form>
+      </Modal>
+
+      {/* Edit Batch Modal (Rename Batch) */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        title="Change Batch Name & Subject"
+        footer={
+          <>
+            <button className="btn btn-secondary" onClick={() => setIsEditModalOpen(false)}>
+              Cancel
+            </button>
+            <button className="btn btn-primary" onClick={handleEditSubmit} disabled={editLoading}>
+              {editLoading ? 'Saving...' : 'Save Changes'}
+            </button>
+          </>
+        }
+      >
+        <form onSubmit={handleEditSubmit}>
+          <div className="form-group">
+            <label className="form-label">Batch Name *</label>
+            <input
+              type="text"
+              className="form-control"
+              placeholder="e.g. CS 101 - Core JavaScript"
+              value={editFormData.name}
+              onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+              required
+              autoFocus
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Subject / Course</label>
+            <input
+              type="text"
+              className="form-control"
+              placeholder="e.g. Computer Science"
+              value={editFormData.subject}
+              onChange={(e) => setEditFormData({ ...editFormData, subject: e.target.value })}
             />
           </div>
         </form>

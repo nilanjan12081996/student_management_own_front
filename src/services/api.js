@@ -525,7 +525,7 @@ class ApiService {
 
 
   // ======================================================
-  // BATCHES API (Synced with MySQL Database)
+  // BATCHES API (Synced with MySQL Database - No Mock)
   // ======================================================
 
   async getBatchesByOrganization(orgId) {
@@ -536,7 +536,7 @@ class ApiService {
           ? response
           : (response.data || response.batches || []);
 
-        if (list && list.length > 0) {
+        if (Array.isArray(list)) {
           setStoredData(LS_KEYS.BATCHES, list);
           if (!orgId) return list;
           return list.filter(
@@ -544,11 +544,12 @@ class ApiService {
           );
         }
       } catch (err) {
-        console.warn('Backend batches fetch failed, falling back to cached/mock data:', err.message);
+        console.warn('Backend batches fetch failed, falling back to cached data:', err.message);
       }
     }
 
-    const allBatches = getStoredData(LS_KEYS.BATCHES, initialMockBatches);
+    // Only return cached real batches or empty list - NEVER fake mock batches
+    const allBatches = getStoredData(LS_KEYS.BATCHES, []);
     if (!orgId) return allBatches;
     return allBatches.filter(
       b => b.organization_id === Number(orgId) || b.organization_id === orgId
@@ -576,7 +577,7 @@ class ApiService {
 
         const created = response?.data || response;
         if (created && created.id) {
-          const currentBatches = getStoredData(LS_KEYS.BATCHES, initialMockBatches);
+          const currentBatches = getStoredData(LS_KEYS.BATCHES, []);
           setStoredData(LS_KEYS.BATCHES, [
             created,
             ...currentBatches.filter(b => b.id !== created.id)
@@ -588,7 +589,7 @@ class ApiService {
       }
     }
 
-    const currentBatches = getStoredData(LS_KEYS.BATCHES, initialMockBatches);
+    const currentBatches = getStoredData(LS_KEYS.BATCHES, []);
     const newBatch = {
       id: Date.now(),
       ...payload,
@@ -597,6 +598,53 @@ class ApiService {
     };
     setStoredData(LS_KEYS.BATCHES, [newBatch, ...currentBatches]);
     return newBatch;
+  }
+
+  async updateBatch(id, updateData) {
+    if (!this.forceMock) {
+      try {
+        const response = await this.request(`/batches/update/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify(updateData)
+        });
+
+        const updated = response?.data || response;
+        if (updated) {
+          const currentBatches = getStoredData(LS_KEYS.BATCHES, []);
+          setStoredData(
+            LS_KEYS.BATCHES,
+            currentBatches.map(b => (b.id === Number(id) || b.id === id ? { ...b, ...updated } : b))
+          );
+          return updated;
+        }
+      } catch (err) {
+        console.warn('Backend updateBatch failed:', err.message);
+      }
+    }
+
+    const currentBatches = getStoredData(LS_KEYS.BATCHES, []);
+    const updatedList = currentBatches.map(b =>
+      b.id === Number(id) || b.id === id ? { ...b, ...updateData } : b
+    );
+    setStoredData(LS_KEYS.BATCHES, updatedList);
+    return updatedList.find(b => b.id === Number(id) || b.id === id);
+  }
+
+  async deleteBatch(id) {
+    if (!this.forceMock) {
+      try {
+        await this.request(`/batches/delete/${id}`, {
+          method: 'DELETE'
+        });
+      } catch (err) {
+        console.warn('Backend deleteBatch failed:', err.message);
+      }
+    }
+
+    const currentBatches = getStoredData(LS_KEYS.BATCHES, []);
+    const filtered = currentBatches.filter(b => b.id !== Number(id) && b.id !== id);
+    setStoredData(LS_KEYS.BATCHES, filtered);
+    return { success: true };
   }
 
 

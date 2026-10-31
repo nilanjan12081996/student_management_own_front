@@ -36,35 +36,7 @@ export const initialMockOrganizations = [
   }
 ];
 
-export const initialMockBatches = [
-  {
-    id: 1,
-    organization_id: 1,
-    name: 'CS 101 - Core JavaScript',
-    subject: 'Computer Science',
-    join_code: 'APEX-CS101',
-    student_count: 14,
-    createdAt: '2026-09-02T10:00:00.000Z'
-  },
-  {
-    id: 2,
-    organization_id: 1,
-    name: 'Full Stack Web Dev 2026',
-    subject: 'Web Development',
-    join_code: 'APEX-WEB26',
-    student_count: 10,
-    createdAt: '2026-09-04T11:30:00.000Z'
-  },
-  {
-    id: 3,
-    organization_id: 2,
-    name: 'SAT Math & Algebra Prep',
-    subject: 'Mathematics',
-    join_code: 'ZEN-SAT26',
-    student_count: 12,
-    createdAt: '2026-09-06T12:00:00.000Z'
-  }
-];
+export const initialMockBatches = [];
 
 export const initialMockUsers = [
   {
