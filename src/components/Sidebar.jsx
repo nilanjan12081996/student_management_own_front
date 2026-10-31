@@ -13,7 +13,8 @@ import {
   ShieldCheck,
   Building2,
   Sparkles,
-  TrendingUp
+  TrendingUp,
+  X
 } from 'lucide-react';
 
 export const Sidebar = ({
@@ -111,26 +112,7 @@ export const Sidebar = ({
         />
       )}
 
-      <aside
-        style={{
-          width: collapsed ? '78px' : '260px',
-          backgroundColor: 'var(--bg-sidebar)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          borderRight: '1px solid var(--border-subtle)',
-          display: 'flex',
-          flexDirection: 'column',
-          transition: 'width var(--transition-base), transform var(--transition-base)',
-          zIndex: 95,
-          position: isMobileOpen ? 'fixed' : 'sticky',
-          top: 0,
-          left: 0,
-          bottom: 0,
-          height: '100vh',
-          transform: isMobileOpen ? 'translateX(0)' : undefined
-        }}
-        className={`sidebar ${collapsed ? 'collapsed' : ''}`}
-      >
+      <aside className={`app-sidebar sidebar ${collapsed ? 'collapsed' : ''} ${isMobileOpen ? 'mobile-open' : ''}`}>
         {/* Brand Header */}
         <div
           style={{
@@ -182,12 +164,20 @@ export const Sidebar = ({
 
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="btn-icon btn-ghost"
+            className="btn-icon btn-ghost desktop-collapse-btn"
             style={{ display: collapsed ? 'none' : 'flex' }}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-label="Toggle sidebar"
           >
             <ChevronLeft size={18} />
+          </button>
+          <button
+            onClick={() => setIsMobileOpen && setIsMobileOpen(false)}
+            className="btn-icon btn-ghost mobile-close-btn"
+            title="Close sidebar"
+            aria-label="Close sidebar"
+          >
+            <X size={20} />
           </button>
         </div>
 

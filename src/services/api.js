@@ -525,92 +525,77 @@ class ApiService {
 
 
   // ======================================================
-  // BATCHES API
+  // BATCHES API (Synced with MySQL Database)
   // ======================================================
 
-  async getBatchesByOrganization(
-    orgId
-  ) {
+  async getBatchesByOrganization(orgId) {
+    if (!this.forceMock) {
+      try {
+        const response = await this.request('/batches/getAll');
+        const list = Array.isArray(response)
+          ? response
+          : (response.data || response.batches || []);
 
-    const allBatches =
-      getStoredData(
-        LS_KEYS.BATCHES,
-        initialMockBatches
-      );
-
-
-    if (!orgId) {
-      return allBatches;
+        if (list && list.length > 0) {
+          setStoredData(LS_KEYS.BATCHES, list);
+          if (!orgId) return list;
+          return list.filter(
+            b => b.organization_id === Number(orgId) || b.organization_id === orgId
+          );
+        }
+      } catch (err) {
+        console.warn('Backend batches fetch failed, falling back to cached/mock data:', err.message);
+      }
     }
 
-
+    const allBatches = getStoredData(LS_KEYS.BATCHES, initialMockBatches);
+    if (!orgId) return allBatches;
     return allBatches.filter(
-      b =>
-        b.organization_id ===
-          Number(orgId) ||
-        b.organization_id ===
-          orgId
+      b => b.organization_id === Number(orgId) || b.organization_id === orgId
     );
   }
 
+  async createBatch(batchData) {
+    const join_code =
+      batchData.join_code ||
+      `${(batchData.name || 'BAT').substring(0, 3).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-  async createBatch(
-    batchData
-  ) {
-
-    const currentBatches =
-      getStoredData(
-        LS_KEYS.BATCHES,
-        initialMockBatches
-      );
-
-
-    const newBatch = {
-
-      id:
-        Date.now(),
-
-      organization_id:
-        Number(
-          batchData.organization_id
-        ) || 1,
-
-      name:
-        batchData.name,
-
-      subject:
-        batchData.subject ||
-        "General Subject",
-
-      join_code:
-        `${batchData.name
-          .substring(0, 3)
-          .toUpperCase()}-${Math.floor(
-          1000 +
-            Math.random() *
-              9000
-        )}`,
-
-      student_count:
-        0,
-
-      createdAt:
-        new Date().toISOString()
+    const payload = {
+      organization_id: Number(batchData.organization_id) || 1,
+      name: batchData.name,
+      subject: batchData.subject || 'General Subject',
+      join_code
     };
 
+    if (!this.forceMock) {
+      try {
+        const response = await this.request('/batches/create', {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
 
-    const updated = [
-      newBatch,
-      ...currentBatches
-    ];
+        const created = response?.data || response;
+        if (created && created.id) {
+          const currentBatches = getStoredData(LS_KEYS.BATCHES, initialMockBatches);
+          setStoredData(LS_KEYS.BATCHES, [
+            created,
+            ...currentBatches.filter(b => b.id !== created.id)
+          ]);
+          return created;
+        }
+      } catch (err) {
+        console.warn('Backend batch create failed, falling back to local storage:', err.message);
+      }
+    }
 
-
-    setStoredData(
-      LS_KEYS.BATCHES,
-      updated
-    );
-
-
+    const currentBatches = getStoredData(LS_KEYS.BATCHES, initialMockBatches);
+    const newBatch = {
+      id: Date.now(),
+      ...payload,
+      student_count: 0,
+      createdAt: new Date().toISOString()
+    };
+    setStoredData(LS_KEYS.BATCHES, [newBatch, ...currentBatches]);
     return newBatch;
   }
 

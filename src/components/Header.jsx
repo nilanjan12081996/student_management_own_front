@@ -54,21 +54,22 @@ export const Header = ({ onMenuToggle, adminUser, onLogout }) => {
     >
       <button
         onClick={onMenuToggle}
-        className="btn-icon btn-ghost"
-        aria-label="Open sidebar"
+        className="btn-icon btn-ghost header-menu-toggle"
+        aria-label="Toggle navigation"
         title="Toggle navigation"
       >
         <Menu size={20} />
       </button>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <div className="header-right-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
         <button
           onClick={refreshHealth}
-          className="btn-icon btn-ghost"
+          className="btn-icon btn-ghost header-refresh-btn"
           title="Refresh API status"
         >
           <RefreshCw size={18} />
         </button>
         <span
+          className="header-health-status"
           style={{
             fontSize: '0.85rem',
             color: health.online ? 'var(--success)' : 'var(--warning)',
@@ -77,8 +78,17 @@ export const Header = ({ onMenuToggle, adminUser, onLogout }) => {
             gap: '0.35rem'
           }}
         >
-          {health.online ? 'Online' : 'Offline'}
-          {health.latency !== null && health.online && ` (${health.latency}ms)`}
+          <span style={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            backgroundColor: health.online ? 'var(--success)' : 'var(--warning)',
+            display: 'inline-block'
+          }} />
+          <span className="header-status-label">{health.online ? 'Online' : 'Offline'}</span>
+          {health.latency !== null && health.online && (
+            <span className="header-latency-text">({health.latency}ms)</span>
+          )}
         </span>
         <button
           onClick={toggleTheme}
@@ -87,7 +97,7 @@ export const Header = ({ onMenuToggle, adminUser, onLogout }) => {
         >
           {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
         </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+        <div className="header-user-profile" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
           <div
             style={{
               width: '32px',
@@ -98,18 +108,20 @@ export const Header = ({ onMenuToggle, adminUser, onLogout }) => {
               alignItems: 'center',
               justifyContent: 'center',
               fontWeight: 600,
-              color: 'var(--primary)'
+              color: 'var(--primary)',
+              flexShrink: 0
             }}
           >
             {adminUser?.name ? adminUser.name.charAt(0).toUpperCase() : 'A'}
           </div>
-          <span style={{ fontSize: '0.9rem', color: 'var(--text-main)' }}>
+          <span className="header-user-name" style={{ fontSize: '0.9rem', color: 'var(--text-main)', fontWeight: 500 }}>
             {adminUser?.name || 'Admin'}
           </span>
           <button
             onClick={onLogout}
             className="btn-icon btn-ghost"
             aria-label="Log out"
+            title="Log out"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"

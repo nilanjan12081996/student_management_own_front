@@ -415,11 +415,7 @@ export const NotesView = ({ user }) => {
         </div>
       ) : (
         <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-            gap: '1.25rem'
-          }}
+          className="responsive-card-grid"
         >
           {filteredNotes.map((note) => {
             const isPdf = note.content_type?.toLowerCase() === 'pdf';

@@ -107,13 +107,7 @@ export const BatchesView = ({ user }) => {
           </div>
         </div>
       ) : (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-            gap: '1.25rem'
-          }}
-        >
+        <div className="responsive-card-grid">
           {filteredBatches.map((batch) => (
             <div key={batch.id} className="card card-interactive">
               <div>
