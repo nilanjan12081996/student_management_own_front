@@ -19,6 +19,7 @@ export const BatchesView = ({ user }) => {
   // Edit Batch state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingBatch, setEditingBatch] = useState(null);
+  const [viewingBatch, setViewingBatch] = useState(null);
   const [editFormData, setEditFormData] = useState({
     name: '',
     subject: ''
@@ -39,11 +40,10 @@ export const BatchesView = ({ user }) => {
 
       const enriched = rawBatches.map((batch) => {
         const bName = (batch.name || '').trim().toLowerCase();
-        const bSubject = (batch.subject || '').trim().toLowerCase();
         const bCode = (batch.join_code || '').trim().toUpperCase();
         const bId = String(batch.id);
 
-        const count = students.filter((s) => {
+        const batchStudents = students.filter((s) => {
           const sClass = (s.class || s.studentClass || '').trim().toLowerCase();
           const sCourse = (s.course || '').trim().toLowerCase();
           const sCode = (s.tuition_code || '').trim().toUpperCase();
@@ -55,16 +55,14 @@ export const BatchesView = ({ user }) => {
             (bName && sBatchName === bName) ||
             (bId && sBatchId === bId) ||
             (bCode && sCode === bCode) ||
-            (bSubject && sClass === bSubject) ||
             (bName && sCourse === bName)
           );
-        }).length;
-
-        const effectiveCount = Math.max(count, Number(batch.student_count) || 0);
+        });
 
         return {
           ...batch,
-          student_count: effectiveCount
+          student_count: batchStudents.length,
+          enrolled_students: batchStudents
         };
       });
 
@@ -224,9 +222,30 @@ export const BatchesView = ({ user }) => {
                 <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '0.5rem' }}>
                   {batch.name}
                 </h3>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
-                  <Users size={15} color="var(--primary)" />
-                  <span>{batch.student_count || 0} Enrolled Students</span>
+                <div
+                  onClick={() => setViewingBatch(batch)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    color: 'var(--text-muted)',
+                    fontSize: '0.85rem',
+                    marginBottom: '1.25rem',
+                    cursor: 'pointer'
+                  }}
+                  title="Click to view enrolled students"
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Users size={15} color="var(--primary)" />
+                    <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>
+                      {batch.student_count || 0} Enrolled Students
+                    </span>
+                  </div>
+                  {batch.student_count > 0 && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--primary)', textDecoration: 'underline' }}>
+                      View List
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -358,6 +377,47 @@ export const BatchesView = ({ user }) => {
             />
           </div>
         </form>
+      </Modal>
+
+      {/* View Enrolled Students Modal */}
+      <Modal
+        isOpen={!!viewingBatch}
+        onClose={() => setViewingBatch(null)}
+        title={`Enrolled Students: ${viewingBatch?.name || ''}`}
+        footer={
+          <button className="btn btn-secondary" onClick={() => setViewingBatch(null)}>
+            Close
+          </button>
+        }
+      >
+        <div>
+          {viewingBatch && (!viewingBatch.enrolled_students || viewingBatch.enrolled_students.length === 0) ? (
+            <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)' }}>
+              No students are currently enrolled in this batch.
+            </div>
+          ) : (
+            <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border-medium)', textAlign: 'left', color: 'var(--text-muted)' }}>
+                    <th style={{ padding: '0.6rem 0.5rem' }}>Student Name</th>
+                    <th style={{ padding: '0.6rem 0.5rem' }}>Email</th>
+                    <th style={{ padding: '0.6rem 0.5rem' }}>Semester</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {viewingBatch?.enrolled_students?.map((s) => (
+                    <tr key={s.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                      <td style={{ padding: '0.6rem 0.5rem', fontWeight: 600 }}>{s.name}</td>
+                      <td style={{ padding: '0.6rem 0.5rem', color: 'var(--text-muted)' }}>{s.email}</td>
+                      <td style={{ padding: '0.6rem 0.5rem' }}>{s.semester || 'Semester 1'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </Modal>
     </div>
   );
