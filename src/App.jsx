@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastProvider } from './components/Toast';
+import { ProfileModal } from './components/ProfileModal';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { DashboardView } from './views/DashboardView';
@@ -24,6 +25,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [collapsed, setCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   const toggleMobile = () => setIsMobileOpen((prev) => !prev);
 
@@ -106,9 +108,10 @@ function App() {
               onLogout={handleLogout}
               isMobileOpen={isMobileOpen}
               setIsMobileOpen={setIsMobileOpen}
+              onOpenProfile={() => setIsProfileModalOpen(true)}
             />
             <div className="main-content">
-              <Header onMenuToggle={toggleMobile} adminUser={adminUser} onLogout={handleLogout} />
+              <Header onMenuToggle={toggleMobile} adminUser={adminUser} onLogout={handleLogout} onOpenProfile={() => setIsProfileModalOpen(true)} />
               <div className="page-container">
                 <Routes>
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -155,6 +158,7 @@ function App() {
         ) : (
           <LoginView onLogin={handleLogin} />
         )}
+        <ProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} user={adminUser} />
       </ToastProvider>
     </Router>
   );

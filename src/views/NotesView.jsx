@@ -530,7 +530,7 @@ export const NotesView = ({ user }) => {
       <Modal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        title="Publish Study Note"
+        title={isAdmin ? "Publish Study Note" : "Create Study Note"}
         footer={
           <>
             <button className="btn btn-secondary" onClick={() => setIsAddModalOpen(false)}>

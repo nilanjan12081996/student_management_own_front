@@ -26,7 +26,8 @@ export const Sidebar = ({
   adminUser,
   onLogout,
   isMobileOpen,
-  setIsMobileOpen
+  setIsMobileOpen,
+  onOpenProfile
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -279,7 +280,7 @@ export const Sidebar = ({
               justifyContent: collapsed ? 'center' : 'space-between'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', overflow: 'hidden' }}>
+            <div onClick={onOpenProfile} title="Click to Edit Profile & Change Password" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', overflow: 'hidden', cursor: 'pointer' }}>
               <div
                 style={{
                   width: '36px',

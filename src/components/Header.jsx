@@ -3,7 +3,7 @@ import { Menu, Sun, Moon, RefreshCw } from 'lucide-react';
 import { api } from '../services/api';
 import { useToast } from './Toast';
 
-export const Header = ({ onMenuToggle, adminUser, onLogout }) => {
+export const Header = ({ onMenuToggle, adminUser, onLogout, onOpenProfile }) => {
   const [health, setHealth] = useState({ online: false, latency: null });
   const { info, success, error, warning } = useToast();
   const [theme, setTheme] = useState('dark');
@@ -60,7 +60,7 @@ export const Header = ({ onMenuToggle, adminUser, onLogout }) => {
       >
         <Menu size={20} />
       </button>
-      <div className="header-right-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+      <div className="header-right-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: 'auto' }}>
         <button
           onClick={refreshHealth}
           className="btn-icon btn-ghost header-refresh-btn"
@@ -97,7 +97,20 @@ export const Header = ({ onMenuToggle, adminUser, onLogout }) => {
         >
           {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
         </button>
-        <div className="header-user-profile" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+        <div
+          className="header-user-profile"
+          onClick={onOpenProfile}
+          title="Click to Edit Profile & Change Password"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            cursor: 'pointer',
+            padding: '0.25rem 0.5rem',
+            borderRadius: 'var(--radius-md)',
+            transition: 'background var(--transition-fast)'
+          }}
+        >
           <div
             style={{
               width: '32px',
