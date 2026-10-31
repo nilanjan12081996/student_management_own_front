@@ -36,6 +36,7 @@ export const UsersView = ({ user: adminUser }) => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
+  const [batchFilter, setBatchFilter] = useState('all');
   const [copiedPassId, setCopiedPassId] = useState(null);
 
   // Modal states
@@ -521,7 +522,14 @@ const handleGeneratePassSubmit = async (e) => {
       u.role?.toLowerCase() ===
         roleFilter.toLowerCase();
 
-    return matchesSearch && matchesRole;
+    const matchesBatch =
+      batchFilter === 'all'
+        ? true
+        : batchFilter === 'unassigned'
+        ? !u.class || !batches.some((b) => b.name === u.class)
+        : u.class === batchFilter || u.batch_name === batchFilter;
+
+    return matchesSearch && matchesRole && matchesBatch;
   });
 
   // =========================================================
@@ -998,6 +1006,32 @@ const handleGeneratePassSubmit = async (e) => {
 
             </div>
 
+            {/* Batch Filter */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <Layers size={16} color="var(--primary)" />
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                Batch:
+              </span>
+              <select
+                className="form-control"
+                style={{
+                  width: 'auto',
+                  padding: '0.45rem 0.85rem',
+                  fontSize: '0.85rem'
+                }}
+                value={batchFilter}
+                onChange={(e) => setBatchFilter(e.target.value)}
+              >
+                <option value="all">All Batches</option>
+                {batches.map((b) => (
+                  <option key={b.id} value={b.name}>
+                    {b.name}
+                  </option>
+                ))}
+                <option value="unassigned">Unassigned (No Batch)</option>
+              </select>
+            </div>
+
           </div>
 
           {/* Student Table */}
@@ -1014,7 +1048,7 @@ const handleGeneratePassSubmit = async (e) => {
                   <th>Tuition Status</th>
                   <th>Device Session</th>
                   <th>Tuition Pass</th>
-                  <th>Class / Batch</th>
+                  <th>Enrolled Batch</th>
                   <th style={{ textAlign: 'right' }}>
                     Security Actions
                   </th>
@@ -1421,35 +1455,59 @@ const handleGeneratePassSubmit = async (e) => {
 
                         </td>
 
-                        {/* CLASS */}
-
+                        {/* ENROLLED BATCH */}
                         <td>
-
-                          <div
-                            style={{
-                              fontSize:
-                                '0.85rem',
-                              color:
-                                'var(--text-main)'
-                            }}
-                          >
-                            {user.class ||
-                              user.studentClass ||
-                              'Computer Science'}
-                          </div>
-
-                          <div
-                            style={{
-                              fontSize:
-                                '0.75rem',
-                              color:
-                                'var(--text-faint)'
-                            }}
-                          >
-                            {user.semester ||
-                              'Semester 1'}
-                          </div>
-
+                          {user.role === 'student' ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                              <select
+                                className="form-control"
+                                style={{
+                                  padding: '0.3rem 0.55rem',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 600,
+                                  borderRadius: '8px',
+                                  border: user.class && batches.some((b) => b.name === user.class)
+                                    ? '1.5px solid var(--primary)'
+                                    : '1.5px dashed var(--border-medium)',
+                                  background: user.class && batches.some((b) => b.name === user.class)
+                                    ? 'rgba(37, 99, 235, 0.08)'
+                                    : 'var(--bg-surface)',
+                                  color: user.class && batches.some((b) => b.name === user.class)
+                                    ? 'var(--primary)'
+                                    : 'var(--text-muted)',
+                                  cursor: 'pointer',
+                                  width: 'auto',
+                                  minWidth: '130px',
+                                  maxWidth: '180px'
+                                }}
+                                value={user.class && batches.some((b) => b.name === user.class) ? user.class : ''}
+                                onChange={async (e) => {
+                                  const selectedBatch = e.target.value;
+                                  try {
+                                    await api.updateUser(user.id, { class: selectedBatch || null });
+                                    success(`Batch updated to "${selectedBatch || 'No Batch'}" for ${user.name}`);
+                                    await fetchData();
+                                  } catch (err) {
+                                    error(err.message || 'Failed to update batch');
+                                  }
+                                }}
+                              >
+                                <option value="">-- No Batch --</option>
+                                {batches.map((b) => (
+                                  <option key={b.id} value={b.name}>
+                                    {b.name}
+                                  </option>
+                                ))}
+                              </select>
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-faint)', paddingLeft: '0.2rem' }}>
+                                {user.semester || 'Semester 1'}
+                              </div>
+                            </div>
+                          ) : (
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                              Faculty / Staff
+                            </span>
+                          )}
                         </td>
 
                         {/* ACTIONS */}

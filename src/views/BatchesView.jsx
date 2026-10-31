@@ -20,13 +20,16 @@ export const BatchesView = ({ user }) => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingBatch, setEditingBatch] = useState(null);
   const [viewingBatch, setViewingBatch] = useState(null);
+  const [allStudents, setAllStudents] = useState([]);
+  const [selectedStudentToAssign, setSelectedStudentToAssign] = useState('');
+  const [assignLoading, setAssignLoading] = useState(false);
   const [editFormData, setEditFormData] = useState({
     name: '',
     subject: ''
   });
   const [editLoading, setEditLoading] = useState(false);
 
-  const fetchBatches = async () => {
+  const fetchBatches = async (keepViewingBatchId = null) => {
     setLoading(true);
     try {
       const [batchesData, usersData] = await Promise.all([
@@ -37,64 +40,69 @@ export const BatchesView = ({ user }) => {
       const rawBatches = Array.isArray(batchesData) ? batchesData : [];
       const rawUsers = Array.isArray(usersData) ? usersData : [];
       const students = rawUsers.filter((u) => !u.role || u.role.toLowerCase() === 'student');
+      setAllStudents(students);
 
       const enriched = rawBatches.map((batch) => {
         const bName = (batch.name || '').trim().toLowerCase();
         const bCode = (batch.join_code || '').trim().toUpperCase();
         const bId = String(batch.id);
 
+        // Strictly students assigned to this batch
         const batchStudents = students.filter((s) => {
           const sClass = (s.class || s.studentClass || '').trim().toLowerCase();
-          const sCourse = (s.course || '').trim().toLowerCase();
-          const sSemester = (s.semester || '').trim().toLowerCase();
-          const sCode = (s.tuition_code || '').trim().toUpperCase();
           const sBatchName = (s.batch_name || '').trim().toLowerCase();
           const sBatchId = s.batch_id ? String(s.batch_id) : '';
+          const sCode = (s.tuition_code || '').trim().toUpperCase();
 
-          // 1. Explicit direct match
-          if (bName && sClass === bName) return true;
-          if (bName && sBatchName === bName) return true;
-          if (bId && sBatchId === bId) return true;
-          if (bCode && sCode === bCode) return true;
-          if (bName && sCourse === bName) return true;
-
-          // 2. Check semester number in batch name (e.g. "Sem 3", "Semester 3")
-          const batchSemMatch = bName.match(/(?:sem(?:ester)?[\s-]*(\d+)|(\d+)(?:st|nd|rd|th)?[\s-]*sem)/i);
-          const studentSemMatch = sSemester.match(/(\d+)/);
-
-          if (batchSemMatch && studentSemMatch) {
-            const batchSemNum = batchSemMatch[1] || batchSemMatch[2];
-            const studentSemNum = studentSemMatch[1];
-            if (batchSemNum !== studentSemNum) {
-              return false;
-            }
-            return true;
-          }
-
-          // 3. Substring match
-          if (bName && bName.length > 3) {
-            if (sClass && sClass.includes(bName)) return true;
-            if (sCourse && sCourse.includes(bName)) return true;
-          }
-
-          return false;
+          return (
+            (bName && sClass === bName) ||
+            (bName && sBatchName === bName) ||
+            (bId && sBatchId === bId) ||
+            (bCode && sCode === bCode)
+          );
         });
-
-        const effectiveCount = batchStudents.length > 0 ? batchStudents.length : (Number(batch.student_count) || 0);
 
         return {
           ...batch,
-          student_count: effectiveCount,
+          student_count: batchStudents.length,
           enrolled_students: batchStudents
         };
       });
 
       setBatches(enriched);
+      if (keepViewingBatchId) {
+        const updated = enriched.find((b) => b.id === keepViewingBatchId);
+        if (updated) setViewingBatch(updated);
+      }
     } catch (err) {
       console.error('Failed to load batches:', err);
       setBatches([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAssignStudent = async () => {
+    if (!selectedStudentToAssign || !viewingBatch) return;
+    setAssignLoading(true);
+    try {
+      await api.updateUser(selectedStudentToAssign, { class: viewingBatch.name });
+      setSelectedStudentToAssign('');
+      await fetchBatches(viewingBatch.id);
+    } catch (err) {
+      console.error('Failed to assign student:', err);
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+
+  const handleRemoveStudent = async (studentId) => {
+    if (!studentId || !viewingBatch) return;
+    try {
+      await api.updateUser(studentId, { class: null });
+      await fetchBatches(viewingBatch.id);
+    } catch (err) {
+      console.error('Failed to remove student from batch:', err);
     }
   };
 
@@ -406,40 +414,101 @@ export const BatchesView = ({ user }) => {
       <Modal
         isOpen={!!viewingBatch}
         onClose={() => setViewingBatch(null)}
-        title={`Enrolled Students: ${viewingBatch?.name || ''}`}
+        title={`Batch: ${viewingBatch?.name || ''}`}
         footer={
           <button className="btn btn-secondary" onClick={() => setViewingBatch(null)}>
             Close
           </button>
         }
       >
-        <div>
-          {viewingBatch && (!viewingBatch.enrolled_students || viewingBatch.enrolled_students.length === 0) ? (
-            <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)' }}>
-              No students are currently enrolled in this batch.
-            </div>
-          ) : (
-            <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border-medium)', textAlign: 'left', color: 'var(--text-muted)' }}>
-                    <th style={{ padding: '0.6rem 0.5rem' }}>Student Name</th>
-                    <th style={{ padding: '0.6rem 0.5rem' }}>Email</th>
-                    <th style={{ padding: '0.6rem 0.5rem' }}>Semester</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {viewingBatch?.enrolled_students?.map((s) => (
-                    <tr key={s.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                      <td style={{ padding: '0.6rem 0.5rem', fontWeight: 600 }}>{s.name}</td>
-                      <td style={{ padding: '0.6rem 0.5rem', color: 'var(--text-muted)' }}>{s.email}</td>
-                      <td style={{ padding: '0.6rem 0.5rem' }}>{s.semester || 'Semester 1'}</td>
-                    </tr>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {/* Quick Enrolment Section */}
+          <div
+            style={{
+              padding: '0.85rem',
+              background: 'var(--bg-surface)',
+              borderRadius: '10px',
+              border: '1px solid var(--border-subtle)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.5rem'
+            }}
+          >
+            <label style={{ fontSize: '0.825rem', fontWeight: 600, color: 'var(--text-main)' }}>
+              Assign a Student to this Batch:
+            </label>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <select
+                className="form-control"
+                value={selectedStudentToAssign}
+                onChange={(e) => setSelectedStudentToAssign(e.target.value)}
+                style={{ flex: 1, fontSize: '0.85rem' }}
+              >
+                <option value="">-- Select a student to assign --</option>
+                {allStudents
+                  .filter((s) => !viewingBatch?.enrolled_students?.some((es) => es.id === s.id))
+                  .map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.email}) - Current: {s.class || 'No Batch'}
+                    </option>
                   ))}
-                </tbody>
-              </table>
+              </select>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                disabled={!selectedStudentToAssign || assignLoading}
+                onClick={handleAssignStudent}
+                style={{ whiteSpace: 'nowrap' }}
+              >
+                {assignLoading ? 'Assigning...' : '+ Assign'}
+              </button>
             </div>
-          )}
+          </div>
+
+          {/* Currently Enrolled List */}
+          <div>
+            <div style={{ fontSize: '0.875rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--text-main)' }}>
+              Currently Enrolled Students ({viewingBatch?.enrolled_students?.length || 0}):
+            </div>
+            {viewingBatch && (!viewingBatch.enrolled_students || viewingBatch.enrolled_students.length === 0) ? (
+              <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)', fontSize: '0.85rem', background: 'var(--bg-surface)', borderRadius: '8px' }}>
+                No students are currently assigned to this batch. Select a student above to assign them.
+              </div>
+            ) : (
+              <div style={{ maxHeight: '280px', overflowY: 'auto', border: '1px solid var(--border-subtle)', borderRadius: '8px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border-medium)', textAlign: 'left', background: 'var(--bg-surface)', color: 'var(--text-muted)' }}>
+                      <th style={{ padding: '0.5rem 0.6rem' }}>Student Name</th>
+                      <th style={{ padding: '0.5rem 0.6rem' }}>Email</th>
+                      <th style={{ padding: '0.5rem 0.6rem' }}>Semester</th>
+                      <th style={{ padding: '0.5rem 0.6rem', textAlign: 'right' }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {viewingBatch?.enrolled_students?.map((s) => (
+                      <tr key={s.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                        <td style={{ padding: '0.5rem 0.6rem', fontWeight: 600 }}>{s.name}</td>
+                        <td style={{ padding: '0.5rem 0.6rem', color: 'var(--text-muted)' }}>{s.email}</td>
+                        <td style={{ padding: '0.5rem 0.6rem' }}>{s.semester || 'Semester 1'}</td>
+                        <td style={{ padding: '0.5rem 0.6rem', textAlign: 'right' }}>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            style={{ color: 'var(--danger)', fontSize: '0.75rem', padding: '0.2rem 0.4rem' }}
+                            onClick={() => handleRemoveStudent(s.id)}
+                            title="Remove from this batch"
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       </Modal>
     </div>
