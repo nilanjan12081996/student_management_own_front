@@ -677,10 +677,15 @@ export const NotesView = ({ user }) => {
                 value={formData.semester}
                 onChange={(e) => setFormData({ ...formData, semester: e.target.value })}
               >
+                <option value="None">None</option>
                 <option value="Semester 1">Semester 1</option>
                 <option value="Semester 2">Semester 2</option>
                 <option value="Semester 3">Semester 3</option>
                 <option value="Semester 4">Semester 4</option>
+                <option value="Semester 5">Semester 5</option>
+                <option value="Semester 6">Semester 6</option>
+                <option value="Semester 7">Semester 7</option>
+                <option value="Semester 8">Semester 8</option>
               </select>
             </div>
           </div>
@@ -806,10 +811,15 @@ export const NotesView = ({ user }) => {
                 value={formData.semester}
                 onChange={(e) => setFormData({ ...formData, semester: e.target.value })}
               >
+                <option value="None">None</option>
                 <option value="Semester 1">Semester 1</option>
                 <option value="Semester 2">Semester 2</option>
                 <option value="Semester 3">Semester 3</option>
                 <option value="Semester 4">Semester 4</option>
+                <option value="Semester 5">Semester 5</option>
+                <option value="Semester 6">Semester 6</option>
+                <option value="Semester 7">Semester 7</option>
+                <option value="Semester 8">Semester 8</option>
               </select>
             </div>
           </div>

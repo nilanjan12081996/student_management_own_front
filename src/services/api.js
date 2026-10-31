@@ -534,14 +534,15 @@ class ApiService {
         const response = await this.request('/batches/getAll');
         const list = Array.isArray(response)
           ? response
-          : (response.data || response.batches || []);
+          : (response?.data || response?.batches || []);
 
-        if (Array.isArray(list)) {
+        if (Array.isArray(list) && list.length > 0) {
           setStoredData(LS_KEYS.BATCHES, list);
           if (!orgId) return list;
-          return list.filter(
-            b => b.organization_id === Number(orgId) || b.organization_id === orgId
+          const filtered = list.filter(
+            b => !b.organization_id || b.organization_id === Number(orgId) || b.organization_id === orgId
           );
+          return filtered.length > 0 ? filtered : list;
         }
       } catch (err) {
         console.warn('Backend batches fetch failed, falling back to cached data:', err.message);
@@ -551,9 +552,10 @@ class ApiService {
     // Only return cached real batches or empty list - NEVER fake mock batches
     const allBatches = getStoredData(LS_KEYS.BATCHES, []);
     if (!orgId) return allBatches;
-    return allBatches.filter(
-      b => b.organization_id === Number(orgId) || b.organization_id === orgId
+    const filtered = allBatches.filter(
+      b => !b.organization_id || b.organization_id === Number(orgId) || b.organization_id === orgId
     );
+    return filtered.length > 0 ? filtered : allBatches;
   }
 
   async createBatch(batchData) {

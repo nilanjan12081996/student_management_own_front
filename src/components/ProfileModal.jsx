@@ -264,13 +264,22 @@ export const ProfileModal = ({ isOpen, onClose, user }) => {
                     </div>
                     <div className="form-group">
                       <label className="form-label" style={{ fontSize: '0.825rem' }}>Semester</label>
-                      <input
-                        type="text"
+                      <select
                         className="form-control"
-                        placeholder="e.g. Semester 2"
-                        value={profileData.semester}
+                        value={profileData.semester || 'None'}
                         onChange={(e) => setProfileData({ ...profileData, semester: e.target.value })}
-                      />
+                      >
+                        <option value="None">None</option>
+                        <option value="Semester 1">Semester 1</option>
+                        <option value="Semester 2">Semester 2</option>
+                        <option value="Semester 3">Semester 3</option>
+                        <option value="Semester 4">Semester 4</option>
+                        <option value="Semester 5">Semester 5</option>
+                        <option value="Semester 6">Semester 6</option>
+                        <option value="Semester 7">Semester 7</option>
+                        <option value="Semester 8">Semester 8</option>
+                        <option value="Staff">Faculty / Staff</option>
+                      </select>
                     </div>
                   </div>
 

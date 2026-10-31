@@ -62,7 +62,7 @@ const [passData, setPassData] = useState({
   student_id: '',
   student_name: '',
   student_email: '',
-  batch_name: 'CS 101 - Core JavaScript',
+  batch_name: '',
   is_single_use: true,
   custom_code: ''
 });
@@ -92,6 +92,12 @@ const [passData, setPassData] = useState({
       setUsers(usersData || []);
       setPasses(passesData || []);
       setBatches(batchesData || []);
+      if (batchesData && batchesData.length > 0) {
+        setPassData(prev => ({
+          ...prev,
+          batch_name: prev.batch_name || batchesData[0].name
+        }));
+      }
 
     } catch (err) {
       console.error(err);
@@ -328,9 +334,7 @@ const handleIssuePassForUser = (user) => {
     student_id: user.id,
     student_name: user.name || '',
     student_email: user.email || '',
-    batch_name:
-      batches[0]?.name ||
-      'CS 101 - Core JavaScript',
+    batch_name: batches[0]?.name || '',
     is_single_use: true,
     custom_code: ''
   });
@@ -410,9 +414,7 @@ const handleGeneratePassSubmit = async (e) => {
       student_id: '',
       student_name: '',
       student_email: '',
-      batch_name:
-        batches[0]?.name ||
-        'CS 101 - Core JavaScript',
+      batch_name: batches[0]?.name || '',
       is_single_use: true,
       custom_code: ''
     });
@@ -604,9 +606,7 @@ const handleGeneratePassSubmit = async (e) => {
                 student_name: '',
                 student_id: '',
                 student_email: '',
-                batch_name:
-                  batches[0]?.name ||
-                  'CS 101 - Core JavaScript',
+                batch_name: batches[0]?.name || '',
                 is_single_use: true,
                 custom_code: ''
               });
@@ -1658,9 +1658,7 @@ const handleGeneratePassSubmit = async (e) => {
                 setPassData({
                   student_name: '',
                   student_email: '',
-                  batch_name:
-                    batches[0]?.name ||
-                    'CS 101 - Core JavaScript',
+                  batch_name: batches[0]?.name || '',
                   is_single_use: true,
                   custom_code: ''
                 });
@@ -2114,25 +2112,16 @@ const handleGeneratePassSubmit = async (e) => {
                 }
               >
 
-                <option value="Semester 1">
-                  Semester 1
-                </option>
-
-                <option value="Semester 2">
-                  Semester 2
-                </option>
-
-                <option value="Semester 3">
-                  Semester 3
-                </option>
-
-                <option value="Semester 4">
-                  Semester 4
-                </option>
-
-                <option value="Staff">
-                  Faculty / Staff
-                </option>
+                <option value="None">None</option>
+                <option value="Semester 1">Semester 1</option>
+                <option value="Semester 2">Semester 2</option>
+                <option value="Semester 3">Semester 3</option>
+                <option value="Semester 4">Semester 4</option>
+                <option value="Semester 5">Semester 5</option>
+                <option value="Semester 6">Semester 6</option>
+                <option value="Semester 7">Semester 7</option>
+                <option value="Semester 8">Semester 8</option>
+                <option value="Staff">Faculty / Staff</option>
 
               </select>
 
@@ -2330,25 +2319,16 @@ const handleGeneratePassSubmit = async (e) => {
                 }
               >
 
-                <option value="Semester 1">
-                  Semester 1
-                </option>
-
-                <option value="Semester 2">
-                  Semester 2
-                </option>
-
-                <option value="Semester 3">
-                  Semester 3
-                </option>
-
-                <option value="Semester 4">
-                  Semester 4
-                </option>
-
-                <option value="Staff">
-                  Faculty / Staff
-                </option>
+                <option value="None">None</option>
+                <option value="Semester 1">Semester 1</option>
+                <option value="Semester 2">Semester 2</option>
+                <option value="Semester 3">Semester 3</option>
+                <option value="Semester 4">Semester 4</option>
+                <option value="Semester 5">Semester 5</option>
+                <option value="Semester 6">Semester 6</option>
+                <option value="Semester 7">Semester 7</option>
+                <option value="Semester 8">Semester 8</option>
+                <option value="Staff">Faculty / Staff</option>
 
               </select>
 
@@ -2559,52 +2539,23 @@ const handleGeneratePassSubmit = async (e) => {
 
             <select
               className="form-control"
-              value={
-                passData.batch_name
-              }
+              value={passData.batch_name}
               onChange={(e) =>
                 setPassData({
                   ...passData,
-                  batch_name:
-                    e.target.value
+                  batch_name: e.target.value
                 })
               }
             >
-
               {batches.length > 0 ? (
-
                 batches.map((b) => (
-
-                  <option
-                    key={b.id}
-                    value={b.name}
-                  >
-                    {b.name}
-                    {b.subject
-                      ? ` (${b.subject})`
-                      : ''}
+                  <option key={b.id} value={b.name}>
+                    {b.name}{b.subject ? ` (${b.subject})` : ''}
                   </option>
-
                 ))
-
               ) : (
-
-                <>
-                  <option value="CS 101 - Core JavaScript">
-                    CS 101 - Core JavaScript
-                  </option>
-
-                  <option value="Full Stack Web Dev 2026">
-                    Full Stack Web Dev 2026
-                  </option>
-
-                  <option value="SAT Math & Algebra Prep">
-                    SAT Math & Algebra Prep
-                  </option>
-                </>
-
+                <option value="">No batches available</option>
               )}
-
             </select>
 
           </div>
