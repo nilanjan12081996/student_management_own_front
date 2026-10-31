@@ -28,9 +28,47 @@ export const BatchesView = ({ user }) => {
   const fetchBatches = async () => {
     setLoading(true);
     try {
-      const data = await api.getBatchesByOrganization(user?.organization_id || 1);
-      // Strictly show only real API batches, never empty nulls
-      setBatches(Array.isArray(data) ? data : []);
+      const [batchesData, usersData] = await Promise.all([
+        api.getBatchesByOrganization(user?.organization_id || 1),
+        api.getAllUsers ? api.getAllUsers(user?.organization_id || 1) : []
+      ]);
+
+      const rawBatches = Array.isArray(batchesData) ? batchesData : [];
+      const rawUsers = Array.isArray(usersData) ? usersData : [];
+      const students = rawUsers.filter((u) => !u.role || u.role.toLowerCase() === 'student');
+
+      const enriched = rawBatches.map((batch) => {
+        const bName = (batch.name || '').trim().toLowerCase();
+        const bSubject = (batch.subject || '').trim().toLowerCase();
+        const bCode = (batch.join_code || '').trim().toUpperCase();
+        const bId = String(batch.id);
+
+        const count = students.filter((s) => {
+          const sClass = (s.class || s.studentClass || '').trim().toLowerCase();
+          const sCourse = (s.course || '').trim().toLowerCase();
+          const sCode = (s.tuition_code || '').trim().toUpperCase();
+          const sBatchName = (s.batch_name || '').trim().toLowerCase();
+          const sBatchId = s.batch_id ? String(s.batch_id) : '';
+
+          return (
+            (bName && sClass === bName) ||
+            (bName && sBatchName === bName) ||
+            (bId && sBatchId === bId) ||
+            (bCode && sCode === bCode) ||
+            (bSubject && sClass === bSubject) ||
+            (bName && sCourse === bName)
+          );
+        }).length;
+
+        const effectiveCount = Math.max(count, Number(batch.student_count) || 0);
+
+        return {
+          ...batch,
+          student_count: effectiveCount
+        };
+      });
+
+      setBatches(enriched);
     } catch (err) {
       console.error('Failed to load batches:', err);
       setBatches([]);

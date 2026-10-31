@@ -404,6 +404,14 @@ const handleGeneratePassSubmit = async (e) => {
       newPass
     );
 
+    if (passData.student_id && passData.batch_name) {
+      try {
+        await api.updateUser(passData.student_id, {
+          class: passData.batch_name
+        });
+      } catch (_) {}
+    }
+
     success(
       `Tuition Pass "${newPass.code || newPass.tuition_code}" issued successfully!`
     );
@@ -2139,24 +2147,41 @@ const handleGeneratePassSubmit = async (e) => {
           >
 
             <div className="form-group">
-
               <label className="form-label">
-                Department / Class
+                Tuition Batch / Class
               </label>
-
-              <input
-                type="text"
-                className="form-control"
-                placeholder="e.g. Computer Science"
-                value={formData.class}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    class: e.target.value
-                  })
-                }
-              />
-
+              {batches && batches.length > 0 ? (
+                <select
+                  className="form-control"
+                  value={formData.class}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      class: e.target.value
+                    })
+                  }
+                >
+                  <option value="">Select Enrolled Batch</option>
+                  {batches.map((b) => (
+                    <option key={b.id} value={b.name}>
+                      {b.name}{b.subject ? ` (${b.subject})` : ''}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. Computer Science"
+                  value={formData.class}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      class: e.target.value
+                    })
+                  }
+                />
+              )}
             </div>
 
             <div className="form-group">
@@ -2346,23 +2371,40 @@ const handleGeneratePassSubmit = async (e) => {
           >
 
             <div className="form-group">
-
               <label className="form-label">
-                Department / Class
+                Tuition Batch / Class
               </label>
-
-              <input
-                type="text"
-                className="form-control"
-                value={formData.class}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    class: e.target.value
-                  })
-                }
-              />
-
+              {batches && batches.length > 0 ? (
+                <select
+                  className="form-control"
+                  value={formData.class}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      class: e.target.value
+                    })
+                  }
+                >
+                  <option value="">Select Enrolled Batch</option>
+                  {batches.map((b) => (
+                    <option key={b.id} value={b.name}>
+                      {b.name}{b.subject ? ` (${b.subject})` : ''}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  className="form-control"
+                  value={formData.class}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      class: e.target.value
+                    })
+                  }
+                />
+              )}
             </div>
 
             <div className="form-group">
