@@ -97,6 +97,7 @@ export const Header = ({ onMenuToggle, adminUser, onLogout, onOpenProfile }) => 
         >
           {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
         </button>
+        {/* Profile Pill */}
         <div
           className="header-user-profile"
           onClick={onOpenProfile}
@@ -130,29 +131,40 @@ export const Header = ({ onMenuToggle, adminUser, onLogout, onOpenProfile }) => 
           <span className="header-user-name" style={{ fontSize: '0.9rem', color: 'var(--text-main)', fontWeight: 500 }}>
             {adminUser?.name || 'Admin'}
           </span>
-          <button
-            onClick={onLogout}
-            className="btn-icon btn-ghost"
-            aria-label="Log out"
-            title="Log out"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              width="18"
-              height="18"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1"
-              />
-            </svg>
-          </button>
         </div>
+
+        {/* Dedicated Logout Button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onLogout) onLogout();
+          }}
+          className="btn-icon btn-ghost"
+          aria-label="Log out"
+          title="Log out"
+          style={{
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            width="18"
+            height="18"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1"
+            />
+          </svg>
+        </button>
       </div>
     </header>
   );

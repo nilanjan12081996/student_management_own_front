@@ -36,7 +36,7 @@ export const LoginView = ({ onLogin }) => {
     email: '',
     password: '',
     studentClass: 'Computer Science',
-    semester: 'Semester 1',
+    semester: '',
     course: 'B.Tech IT',
     tuition_code: ''
   });
@@ -879,21 +879,13 @@ export const LoginView = ({ onLogin }) => {
                       <label className="form-label" style={{ fontSize: '0.825rem' }}>
                         Semester / Grade
                       </label>
-                      <select
+                      <input
+                        type="text"
                         className="form-control"
-                        value={regData.semester || 'Semester 1'}
+                        placeholder="e.g. 3rd Sem, Class 10, Grade 8"
+                        value={regData.semester}
                         onChange={(e) => setRegData({ ...regData, semester: e.target.value })}
-                      >
-                        <option value="None">None</option>
-                        <option value="Semester 1">Semester 1</option>
-                        <option value="Semester 2">Semester 2</option>
-                        <option value="Semester 3">Semester 3</option>
-                        <option value="Semester 4">Semester 4</option>
-                        <option value="Semester 5">Semester 5</option>
-                        <option value="Semester 6">Semester 6</option>
-                        <option value="Semester 7">Semester 7</option>
-                        <option value="Semester 8">Semester 8</option>
-                      </select>
+                      />
                     </div>
                   </div>
 
