@@ -5,6 +5,7 @@ import {
   Lock,
   User,
   ArrowRight,
+  ArrowLeft,
   ShieldCheck,
   AlertCircle,
   Key,
@@ -18,6 +19,9 @@ import { api, getDeviceId } from '../services/api';
 
 export const LoginView = ({ onLogin }) => {
   const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [isForgotPasswordMode, setIsForgotPasswordMode] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotDevLink, setForgotDevLink] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -73,6 +77,34 @@ export const LoginView = ({ onLogin }) => {
     } catch (err) {
       console.error('Login error:', err);
       setErrorMessage(err.message || 'Invalid email or password.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle Forgot Password submission
+  const handleForgotPasswordSubmit = async (e) => {
+    e.preventDefault();
+    setErrorMessage('');
+    setSuccessMessage('');
+    setForgotDevLink('');
+
+    if (!forgotEmail.trim()) {
+      setErrorMessage('Please enter your registered email address.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const res = await api.forgotPassword(forgotEmail.trim());
+      setSuccessMessage(res?.message || 'Password reset link sent to your email.');
+      if (res?.devResetUrl) {
+        setForgotDevLink(res.devResetUrl);
+      }
+    } catch (err) {
+      console.error('Forgot password error:', err);
+      setErrorMessage(err.message || 'Failed to send password reset link.');
     } finally {
       setLoading(false);
     }
@@ -313,6 +345,171 @@ export const LoginView = ({ onLogin }) => {
                 Return to Sign In
               </button>
             </div>
+          ) : isForgotPasswordMode ? (
+            <div>
+              <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+                <div
+                  style={{
+                    width: '52px',
+                    height: '52px',
+                    borderRadius: '16px',
+                    background: 'rgba(37, 99, 235, 0.1)',
+                    color: 'var(--primary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 0.75rem'
+                  }}
+                >
+                  <Key size={26} />
+                </div>
+                <h2 style={{ fontSize: '1.3rem', fontWeight: 700, marginBottom: '0.35rem', color: 'var(--text-main)' }}>
+                  Forgot Password?
+                </h2>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                  Enter your account email to receive a secure password reset link.
+                </p>
+              </div>
+
+              {/* Error Alert */}
+              {errorMessage && (
+                <div
+                  style={{
+                    padding: '0.75rem 1rem',
+                    borderRadius: '10px',
+                    background: 'var(--danger-light)',
+                    color: 'var(--danger)',
+                    fontSize: '0.85rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    marginBottom: '1.25rem',
+                    fontWeight: 500
+                  }}
+                >
+                  <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
+
+              {/* Success Alert */}
+              {successMessage && (
+                <div
+                  style={{
+                    padding: '0.75rem 1rem',
+                    borderRadius: '10px',
+                    background: 'var(--success-light)',
+                    color: 'var(--success)',
+                    fontSize: '0.85rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    marginBottom: '1.25rem',
+                    fontWeight: 500
+                  }}
+                >
+                  <CheckCircle2 size={16} style={{ flexShrink: 0 }} />
+                  <span>{successMessage}</span>
+                </div>
+              )}
+
+              {forgotDevLink && (
+                <div
+                  style={{
+                    padding: '0.85rem',
+                    background: 'rgba(37, 99, 235, 0.08)',
+                    border: '1px solid rgba(37, 99, 235, 0.25)',
+                    borderRadius: '10px',
+                    marginBottom: '1.25rem',
+                    fontSize: '0.82rem',
+                    color: '#1e40af'
+                  }}
+                >
+                  <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>Direct Reset Link:</div>
+                  <a
+                    href={forgotDevLink}
+                    style={{ color: '#2563eb', wordBreak: 'break-all', textDecoration: 'underline' }}
+                  >
+                    Open Reset Password Form
+                  </a>
+                </div>
+              )}
+
+              <form onSubmit={handleForgotPasswordSubmit}>
+                <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                  <label className="form-label" style={{ fontSize: '0.85rem' }}>
+                    Registered Email Address
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="email"
+                      className="form-control"
+                      placeholder="e.g. student@gmail.com"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      style={{ paddingLeft: '2.5rem' }}
+                      required
+                      autoFocus
+                    />
+                    <Mail
+                      size={17}
+                      style={{
+                        position: 'absolute',
+                        left: '0.85rem',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        color: 'var(--text-faint)'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={loading}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    fontSize: '0.95rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    marginBottom: '1rem'
+                  }}
+                >
+                  {loading ? 'Sending Reset Link...' : 'Send Reset Link'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsForgotPasswordMode(false);
+                    setErrorMessage('');
+                    setSuccessMessage('');
+                    setForgotDevLink('');
+                  }}
+                  style={{
+                    width: '100%',
+                    background: 'transparent',
+                    border: '1px solid var(--border-medium)',
+                    borderRadius: '10px',
+                    padding: '0.65rem',
+                    color: 'var(--text-muted)',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.4rem'
+                  }}
+                >
+                  <ArrowLeft size={16} /> Back to Sign In
+                </button>
+              </form>
+            </div>
           ) : (
             <>
               {/* Tab Switcher */}
@@ -444,9 +641,32 @@ export const LoginView = ({ onLogin }) => {
                   </div>
 
                   <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-                    <label className="form-label" style={{ fontSize: '0.85rem' }}>
-                      Password
-                    </label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                      <label className="form-label" style={{ fontSize: '0.85rem', marginBottom: 0 }}>
+                        Password
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsForgotPasswordMode(true);
+                          setForgotEmail(loginEmail || '');
+                          setErrorMessage('');
+                          setSuccessMessage('');
+                          setForgotDevLink('');
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#2563eb',
+                          fontSize: '0.8rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          padding: 0
+                        }}
+                      >
+                        Forgot password?
+                      </button>
+                    </div>
                     <div style={{ position: 'relative' }}>
                       <input
                         type="password"

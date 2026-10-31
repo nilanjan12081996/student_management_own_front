@@ -12,6 +12,7 @@ import { BatchesView } from './views/BatchesView';
 import { ProgressView } from './views/ProgressView';
 import { AiStudioView } from './views/AiStudioView';
 import { LoginView } from './views/LoginView';
+import { ResetPasswordView } from './views/ResetPasswordView';
 import { api, getDeviceId } from './services/api';
 
 import { useSelector, useDispatch } from 'react-redux';
@@ -150,13 +151,17 @@ function App() {
                       )
                     }
                   />
+                  <Route path="/reset-password" element={<ResetPasswordView />} />
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
               </div>
             </div>
           </div>
         ) : (
-          <LoginView onLogin={handleLogin} />
+          <Routes>
+            <Route path="/reset-password" element={<ResetPasswordView />} />
+            <Route path="*" element={<LoginView onLogin={handleLogin} />} />
+          </Routes>
         )}
         <ProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} user={adminUser} />
       </ToastProvider>

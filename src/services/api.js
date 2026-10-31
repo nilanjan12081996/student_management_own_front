@@ -1395,6 +1395,38 @@ class ApiService {
     };
   }
 
+  // ======================================================
+  // FORGOT & RESET PASSWORD
+  // ======================================================
+
+  async forgotPassword(email) {
+    try {
+      return await this.request("/users/forgot-password", {
+        method: "POST",
+        body: JSON.stringify({ email: email.trim().toLowerCase() })
+      });
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || "Failed to send reset link";
+      throw new Error(msg);
+    }
+  }
+
+  async resetPassword({ token, email, newPassword }) {
+    try {
+      return await this.request("/users/reset-password", {
+        method: "POST",
+        body: JSON.stringify({
+          token,
+          email: email.trim().toLowerCase(),
+          newPassword
+        })
+      });
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || "Failed to reset password";
+      throw new Error(msg);
+    }
+  }
+
 
   // ======================================================
   // TUITION PASSES
