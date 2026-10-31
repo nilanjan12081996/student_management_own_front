@@ -3132,232 +3132,147 @@ class ApiService {
   // NOTES API
   // ======================================================
 
-  async getAllNotes(
-    orgId,
-    batchId
-  ) {
+  async getAllNotes(orgId, batchId) {
+    if (!this.forceMock) {
+      try {
+        const response = await this.request('/notes/getAll');
+        const list = Array.isArray(response)
+          ? response
+          : (response?.data || response?.notes || []);
 
-    let currentNotes =
-      getStoredData(
-        LS_KEYS.NOTES,
-        initialMockNotes
-      );
+        if (Array.isArray(list) && list.length > 0) {
+          const currentNotes = getStoredData(LS_KEYS.NOTES, initialMockNotes);
+          const merged = [...list];
+          currentNotes.forEach(localNote => {
+            if (!merged.find(m => String(m.id) === String(localNote.id))) {
+              merged.push(localNote);
+            }
+          });
+          setStoredData(LS_KEYS.NOTES, merged);
+        }
+      } catch (err) {
+        console.warn('Backend notes fetch failed, using cached notes:', err.message);
+      }
+    }
 
+    let currentNotes = getStoredData(LS_KEYS.NOTES, initialMockNotes);
 
     // Auto-migrate old notes
-    if (
-      currentNotes.length > 0 &&
-      currentNotes[0].batch_id ===
-        undefined
-    ) {
+    if (currentNotes.length > 0 && currentNotes[0].batch_id === undefined) {
+      currentNotes = initialMockNotes;
+      setStoredData(LS_KEYS.NOTES, currentNotes);
+    }
 
-      currentNotes =
-        initialMockNotes;
+    let filtered = currentNotes;
 
-
-      setStoredData(
-        LS_KEYS.NOTES,
-        currentNotes
+    if (orgId) {
+      filtered = filtered.filter(
+        n => n.organization_id === Number(orgId) || n.organization_id === orgId
       );
     }
 
-
-    let filtered =
-      currentNotes;
-
-
-    if (orgId) {
-
-      filtered =
-        filtered.filter(
-          n =>
-            n.organization_id ===
-              Number(orgId) ||
-            n.organization_id ===
-              orgId
-        );
-    }
-
-
     if (batchId) {
-
-      filtered =
-        filtered.filter(
-          n =>
-            !n.batch_id ||
-            n.batch_id ===
-              "all" ||
-            Number(
-              n.batch_id
-            ) ===
-              Number(batchId)
-        );
+      filtered = filtered.filter(
+        n => !n.batch_id || n.batch_id === "all" || Number(n.batch_id) === Number(batchId)
+      );
     }
-
 
     return filtered;
   }
 
-
-  async createNote(
-    noteData
-  ) {
-
-    const currentNotes =
-      getStoredData(
-        LS_KEYS.NOTES,
-        initialMockNotes
-      );
-
-
-    const newNote = {
-
-      id:
-        Date.now(),
-
-      organization_id:
-        Number(
-          noteData.organization_id
-        ) || 1,
-
-      batch_id:
-        noteData.batch_id
-          ? Number(
-              noteData.batch_id
-            )
-          : null,
-
-      batch_name:
-        noteData.batch_name ||
-        "All Batches",
-
-      title:
-        noteData.title,
-
-      topic:
-        noteData.topic,
-
-      class:
-        noteData.class,
-
-      semester:
-        noteData.semester,
-
-      content_type:
-        noteData.content_type ||
-        "text",
-
-      content_url:
-        noteData.content_url,
-
-      createdAt:
-        new Date().toISOString()
+  async createNote(noteData) {
+    const payload = {
+      organization_id: Number(noteData.organization_id) || 1,
+      batch_id: noteData.batch_id ? Number(noteData.batch_id) : null,
+      batch_name: noteData.batch_name || "All Batches",
+      title: noteData.title,
+      topic: noteData.topic,
+      class: noteData.class,
+      semester: noteData.semester,
+      content_type: noteData.content_type || "text",
+      content_url: noteData.content_url
     };
 
+    if (!this.forceMock) {
+      try {
+        const response = await this.request('/notes/create', {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+        const created = response?.data || response?.note || response;
+        if (created && created.id) {
+          const currentNotes = getStoredData(LS_KEYS.NOTES, initialMockNotes);
+          const fullNote = { ...payload, ...created };
+          setStoredData(LS_KEYS.NOTES, [
+            fullNote,
+            ...currentNotes.filter(n => n.id !== created.id)
+          ]);
+          return fullNote;
+        }
+      } catch (err) {
+        console.warn('Backend note create failed, using local storage:', err.message);
+      }
+    }
 
-    const updated = [
-      newNote,
-      ...currentNotes
-    ];
+    const currentNotes = getStoredData(LS_KEYS.NOTES, initialMockNotes);
+    const newNote = {
+      id: Date.now(),
+      ...payload,
+      createdAt: new Date().toISOString()
+    };
 
-
-    setStoredData(
-      LS_KEYS.NOTES,
-      updated
-    );
-
-
+    const updated = [newNote, ...currentNotes];
+    setStoredData(LS_KEYS.NOTES, updated);
     return newNote;
   }
 
+  async updateNote(id, noteData) {
+    if (!this.forceMock) {
+      try {
+        await this.request(`/notes/update/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify(noteData)
+        });
+      } catch (err) {
+        console.warn('Backend note update failed, using local storage:', err.message);
+      }
+    }
 
-  async updateNote(
-    id,
-    noteData
-  ) {
-
-    const currentNotes =
-      getStoredData(
-        LS_KEYS.NOTES,
-        initialMockNotes
-      );
-
-
-    const updated =
-      currentNotes.map(
-        n =>
-          n.id === Number(id) ||
-          n.id === id
-            ? {
-
-                ...n,
-
-                ...noteData,
-
-                batch_id:
-                  noteData.batch_id !==
-                  undefined
-                    ? (
-                        noteData.batch_id
-                          ? Number(
-                              noteData.batch_id
-                            )
-                          : null
-                      )
-                    : n.batch_id,
-
-                batch_name:
-                  noteData.batch_name !==
-                  undefined
-                    ? noteData.batch_name
-                    : n.batch_name
-              }
-            : n
-      );
-
-
-    setStoredData(
-      LS_KEYS.NOTES,
-      updated
+    const currentNotes = getStoredData(LS_KEYS.NOTES, initialMockNotes);
+    const updated = currentNotes.map(n =>
+      n.id === Number(id) || n.id === id
+        ? {
+            ...n,
+            ...noteData,
+            batch_id: noteData.batch_id !== undefined
+              ? (noteData.batch_id ? Number(noteData.batch_id) : null)
+              : n.batch_id,
+            batch_name: noteData.batch_name !== undefined
+              ? noteData.batch_name
+              : n.batch_name
+          }
+        : n
     );
 
-
-    return {
-      message:
-        "Note updated successfully"
-    };
+    setStoredData(LS_KEYS.NOTES, updated);
+    return { message: "Note updated successfully" };
   }
 
+  async deleteNote(id) {
+    if (!this.forceMock) {
+      try {
+        await this.request(`/notes/delete/${id}`, {
+          method: 'DELETE'
+        });
+      } catch (err) {
+        console.warn('Backend note delete failed, using local storage:', err.message);
+      }
+    }
 
-  async deleteNote(
-    id
-  ) {
-
-    const currentNotes =
-      getStoredData(
-        LS_KEYS.NOTES,
-        initialMockNotes
-      );
-
-
-    const updated =
-      currentNotes.filter(
-        n =>
-          n.id !== Number(id) &&
-          n.id !== id
-      );
-
-
-    setStoredData(
-      LS_KEYS.NOTES,
-      updated
-    );
-
-
-    return {
-      message:
-        "Note deleted successfully"
-    };
+    const currentNotes = getStoredData(LS_KEYS.NOTES, initialMockNotes);
+    const updated = currentNotes.filter(n => n.id !== Number(id) && n.id !== id);
+    setStoredData(LS_KEYS.NOTES, updated);
+    return { message: "Note deleted successfully" };
   }
 
 

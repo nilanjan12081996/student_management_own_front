@@ -29,8 +29,9 @@ import { ConfirmModal } from '../components/ConfirmModal';
 
 export const NotesView = ({ user }) => {
   const location = useLocation();
-  const isAdmin = user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'superadmin';
-  const isStudent = user?.role?.toLowerCase() === 'student';
+  const role = user?.role?.toLowerCase();
+  const isAdmin = role === 'admin' || role === 'superadmin';
+  const isStudent = !isAdmin;
 
   const [notes, setNotes] = useState([]);
   const [batches, setBatches] = useState([]);
@@ -105,8 +106,58 @@ export const NotesView = ({ user }) => {
     setSelectedNote(null);
   };
 
+  const handleDownloadNote = (note) => {
+    if (!note) return;
+
+    if (note.content_type?.toLowerCase() === 'pdf') {
+      if (note.content_url) {
+        const link = document.createElement('a');
+        link.href = note.content_url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.download = `${(note.title || 'study_note').replace(/[^a-zA-Z0-9_\-]/g, '_')}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        success(`Downloading "${note.title}" PDF...`);
+      } else {
+        error('Note PDF URL not found');
+      }
+    } else {
+      try {
+        const textContent = [
+          '======================================================',
+          `TITLE: ${note.title || 'Study Note'}`,
+          `TOPIC: ${note.topic || 'General Topic'}`,
+          `CLASS: ${note.class || 'All Classes'} | SEMESTER: ${note.semester || 'N/A'}`,
+          `BATCH: ${note.batch_name || 'All Batches'}`,
+          '======================================================\n',
+          note.content_url || ''
+        ].join('\n');
+
+        const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${(note.title || 'study_note').replace(/[^a-zA-Z0-9_\-]/g, '_')}.txt`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        success(`Downloaded "${note.title}.txt" successfully`);
+      } catch (err) {
+        console.error(err);
+        error('Failed to download note file');
+      }
+    }
+  };
+
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
+    if (!isAdmin) {
+      error('Access restricted: Only tutors or administrators can create study notes.');
+      return;
+    }
     if (!formData.title || !formData.content_url) {
       error('Title and Content/URL are required');
       return;
@@ -154,6 +205,10 @@ export const NotesView = ({ user }) => {
 
   const handleEditSubmit = async (e) => {
     e.preventDefault();
+    if (!isAdmin) {
+      error('Access restricted: Only tutors or administrators can edit study notes.');
+      return;
+    }
     if (!selectedNote) return;
 
     try {
@@ -181,6 +236,10 @@ export const NotesView = ({ user }) => {
   };
 
   const handleConfirmDelete = async () => {
+    if (!isAdmin) {
+      error('Access restricted: Only tutors or administrators can delete study notes.');
+      return;
+    }
     if (!selectedNote) return;
     try {
       await api.deleteNote(selectedNote.id);
@@ -437,6 +496,9 @@ export const NotesView = ({ user }) => {
                       <button onClick={() => handleViewClick(note)} className="btn-icon btn-ghost" title="View Note">
                         <Eye size={16} />
                       </button>
+                      <button onClick={() => handleDownloadNote(note)} className="btn-icon btn-ghost" title="Download Note" style={{ color: 'var(--primary)' }}>
+                        <Download size={16} />
+                      </button>
                       {isAdmin && (
                         <>
                           <button onClick={() => handleEditClick(note)} className="btn-icon btn-ghost" title="Edit Note">
@@ -517,9 +579,14 @@ export const NotesView = ({ user }) => {
                       {note.batch_name || 'All Batches'}
                     </span>
                   </div>
-                  <button className="btn btn-ghost btn-sm" onClick={() => handleViewClick(note)}>
-                    Open <ExternalLink size={13} />
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <button className="btn btn-ghost btn-sm" onClick={() => handleViewClick(note)} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                      <Eye size={13} /> View
+                    </button>
+                    <button className="btn btn-secondary btn-sm" onClick={() => handleDownloadNote(note)} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                      <Download size={13} /> Download
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -527,11 +594,12 @@ export const NotesView = ({ user }) => {
         </div>
       )}
 
-      {/* CREATE NOTE MODAL */}
-      <Modal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        title={isAdmin ? "Publish Study Note" : "Create Study Note"}
+      {/* CREATE NOTE MODAL - ADMIN ONLY */}
+      {isAdmin && (
+        <Modal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          title="Publish Study Note"
         footer={
           <>
             <button className="btn btn-secondary" onClick={() => setIsAddModalOpen(false)}>
@@ -655,12 +723,14 @@ export const NotesView = ({ user }) => {
           </div>
         </form>
       </Modal>
+      )}
 
-      {/* EDIT NOTE MODAL */}
-      <Modal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        title="Edit Study Note"
+      {/* EDIT NOTE MODAL - ADMIN ONLY */}
+      {isAdmin && (
+        <Modal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          title="Edit Study Note"
         footer={
           <>
             <button className="btn btn-secondary" onClick={() => setIsEditModalOpen(false)}>
@@ -780,6 +850,7 @@ export const NotesView = ({ user }) => {
           </div>
         </form>
       </Modal>
+      )}
 
       {/* VIEW NOTE PREVIEW MODAL */}
       <Modal
@@ -788,9 +859,19 @@ export const NotesView = ({ user }) => {
         title={selectedNote?.title || 'Note Preview'}
         size="lg"
         footer={
-          <button className="btn btn-secondary" onClick={() => setIsViewModalOpen(false)}>
-            Close
-          </button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-primary"
+              onClick={() => handleDownloadNote(selectedNote)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+            >
+              <Download size={15} />
+              {selectedNote?.content_type === 'pdf' ? 'Download PDF' : 'Download Note (.txt)'}
+            </button>
+            <button className="btn btn-secondary" onClick={() => setIsViewModalOpen(false)}>
+              Close
+            </button>
+          </div>
         }
       >
         {selectedNote && (
@@ -820,55 +901,96 @@ export const NotesView = ({ user }) => {
             {selectedNote.content_type === 'pdf' ? (
               <div
                 style={{
-                  padding: '2rem',
+                  padding: '2.5rem 1.5rem',
                   textAlign: 'center',
                   background: 'var(--bg-surface)',
                   borderRadius: 'var(--radius-md)',
                   border: '1px solid var(--border-subtle)'
                 }}
               >
-                <FileText size={48} color="var(--danger)" style={{ marginBottom: '1rem' }} />
-                <h4 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>External PDF Resource</h4>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.5rem', wordBreak: 'break-all' }}>
+                <div
+                  style={{
+                    width: '64px',
+                    height: '64px',
+                    borderRadius: '16px',
+                    background: 'rgba(239, 68, 68, 0.12)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 1.25rem',
+                    color: 'var(--danger)'
+                  }}
+                >
+                  <FileText size={32} />
+                </div>
+                <h4 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--text-main)' }}>
+                  {selectedNote.title}
+                </h4>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.5rem', wordBreak: 'break-all', maxWidth: '500px', margin: '0 auto 1.5rem' }}>
                   {selectedNote.content_url}
                 </p>
-                <a
-                  href={selectedNote.content_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn btn-primary"
-                >
-                  Open PDF Document <ExternalLink size={16} />
-                </a>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <a
+                    href={selectedNote.content_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn btn-secondary"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                  >
+                    Open in Browser <ExternalLink size={15} />
+                  </a>
+                  <button
+                    onClick={() => handleDownloadNote(selectedNote)}
+                    className="btn btn-primary"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                  >
+                    <Download size={15} /> Download PDF
+                  </button>
+                </div>
               </div>
             ) : (
-              <div
-                style={{
-                  padding: '1.5rem',
-                  background: 'var(--bg-surface)',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border-subtle)',
-                  whiteSpace: 'pre-wrap',
-                  lineHeight: '1.7',
-                  fontSize: '0.95rem',
-                  color: 'var(--text-main)'
-                }}
-              >
-                {selectedNote.content_url}
+              <div>
+                <div
+                  style={{
+                    padding: '1.5rem',
+                    background: 'var(--bg-surface)',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-subtle)',
+                    whiteSpace: 'pre-wrap',
+                    lineHeight: '1.7',
+                    fontSize: '0.95rem',
+                    color: 'var(--text-main)',
+                    maxHeight: '400px',
+                    overflowY: 'auto'
+                  }}
+                >
+                  {selectedNote.content_url}
+                </div>
+                <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={() => handleDownloadNote(selectedNote)}
+                    className="btn btn-secondary btn-sm"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                  >
+                    <Download size={14} /> Download Note as .txt
+                  </button>
+                </div>
               </div>
             )}
           </div>
         )}
       </Modal>
 
-      {/* DELETE NOTE CONFIRM MODAL */}
-      <ConfirmModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        onConfirm={handleConfirmDelete}
-        title="Delete Study Note"
-        message={`Are you sure you want to delete "${selectedNote?.title}"?`}
-      />
+      {/* DELETE NOTE CONFIRM MODAL - ADMIN ONLY */}
+      {isAdmin && (
+        <ConfirmModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => setIsDeleteModalOpen(false)}
+          onConfirm={handleConfirmDelete}
+          title="Delete Study Note"
+          message={`Are you sure you want to delete "${selectedNote?.title}"?`}
+        />
+      )}
     </div>
   );
 };
