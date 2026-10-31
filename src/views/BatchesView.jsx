@@ -33,38 +33,47 @@ export const BatchesView = ({ user }) => {
     setLoading(true);
     try {
       const [batchesData, usersData] = await Promise.all([
-        api.getBatchesByOrganization(user?.organization_id || 1),
-        api.getAllUsers ? api.getAllUsers(user?.organization_id || 1) : []
+        api.getBatchesByOrganization(user?.organization_id),
+        api.getAllUsers ? api.getAllUsers(user?.organization_id) : []
       ]);
 
       const rawBatches = Array.isArray(batchesData) ? batchesData : [];
-      const rawUsers = Array.isArray(usersData) ? usersData : [];
+      const rawUsers = Array.isArray(usersData) ? usersData : (usersData?.users || usersData?.data || []);
       const students = rawUsers.filter((u) => !u.role || u.role.toLowerCase() === 'student');
       setAllStudents(students);
 
+      const normalizeStr = (str) => (str || '').toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+
       const enriched = rawBatches.map((batch) => {
         const bName = (batch.name || '').trim().toLowerCase();
+        const bNameNorm = normalizeStr(batch.name);
         const bCode = (batch.join_code || '').trim().toUpperCase();
         const bId = String(batch.id);
 
         // Strictly students assigned to this batch
         const batchStudents = students.filter((s) => {
           const sClass = (s.class || s.studentClass || '').trim().toLowerCase();
+          const sClassNorm = normalizeStr(s.class || s.studentClass);
           const sBatchName = (s.batch_name || '').trim().toLowerCase();
+          const sBatchNameNorm = normalizeStr(s.batch_name);
           const sBatchId = s.batch_id ? String(s.batch_id) : '';
           const sCode = (s.tuition_code || '').trim().toUpperCase();
 
           return (
             (bName && sClass === bName) ||
+            (bNameNorm && sClassNorm === bNameNorm) ||
             (bName && sBatchName === bName) ||
-            (bId && sBatchId === bId) ||
-            (bCode && sCode === bCode)
+            (bNameNorm && sBatchNameNorm === bNameNorm) ||
+            (bId && (sBatchId === bId || sClass === bId)) ||
+            (bCode && (sCode === bCode || sClass.toUpperCase() === bCode))
           );
         });
 
+        const calculatedCount = batchStudents.length > 0 ? batchStudents.length : (batch.student_count || 0);
+
         return {
           ...batch,
-          student_count: batchStudents.length,
+          student_count: calculatedCount,
           enrolled_students: batchStudents
         };
       });

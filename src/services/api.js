@@ -886,14 +886,13 @@ class ApiService {
           return list;
         }
 
-
-        return list.filter(
+        const filtered = list.filter(
           u =>
-            u.organization_id ===
-              Number(orgId) ||
-            u.organization_id ===
-              orgId
+            !u.organization_id ||
+            u.organization_id === Number(orgId) ||
+            u.organization_id === orgId
         );
+        return filtered.length > 0 ? filtered : list;
       }
 
     } catch (err) {

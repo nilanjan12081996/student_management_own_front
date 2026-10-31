@@ -18,7 +18,8 @@ import {
   Check,
   Power,
   RotateCcw,
-  Sparkles
+  Sparkles,
+  Layers
 } from 'lucide-react';
 
 import { api } from '../services/api';
