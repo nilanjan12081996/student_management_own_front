@@ -192,13 +192,43 @@ const setStoredData = (
 class ApiService {
 
   constructor() {
-
     this.isLiveAvailable = false;
+    this.forceMock = false;
 
-    this.forceMock =
-      localStorage.getItem(
-        LS_KEYS.MODE
-      ) === "mock";
+    // Purge legacy static mock quizzes and notes from browser localStorage
+    try {
+      const mockQuizTitles = [
+        'JavaScript Fundamentals & ES6+',
+        'React Hooks & State Architecture',
+        'Node.js & Express REST APIs',
+        'Database Modeling & SQL Queries',
+        'Full Stack Web Development Mid-Term',
+        'Cyber Security & Auth Protocols',
+        'Python Data Structures',
+        'Artificial Intelligence Overview'
+      ];
+      const cachedQuizzes = localStorage.getItem(LS_KEYS.QUIZZES);
+      if (cachedQuizzes) {
+        const list = JSON.parse(cachedQuizzes);
+        const cleaned = (list || []).filter(q => !mockQuizTitles.includes(q.title) && (typeof q.id === 'string' || q.id > 1000));
+        localStorage.setItem(LS_KEYS.QUIZZES, JSON.stringify(cleaned));
+      }
+
+      const mockNoteTitles = [
+        'Object-Oriented Programming Principles & ES6+',
+        'React Architecture & State Management Deep Dive',
+        'Node.js & Express RESTful API Design Patterns',
+        'Polynomial Equations & Graph Factoring'
+      ];
+      const cachedNotes = localStorage.getItem(LS_KEYS.NOTES);
+      if (cachedNotes) {
+        const list = JSON.parse(cachedNotes);
+        const cleaned = (list || []).filter(n => !mockNoteTitles.includes(n.title) && (typeof n.id === 'string' || n.id > 1000));
+        localStorage.setItem(LS_KEYS.NOTES, JSON.stringify(cleaned));
+      }
+    } catch {
+      // Ignore
+    }
   }
 
 
@@ -661,7 +691,7 @@ class ApiService {
     const currentSubmissions =
       getStoredData(
         LS_KEYS.SUBMISSIONS,
-        initialMockSubmissions
+        []
       );
 
 
@@ -687,7 +717,7 @@ class ApiService {
     const currentSubmissions =
       getStoredData(
         LS_KEYS.SUBMISSIONS,
-        initialMockSubmissions
+        []
       );
 
 
@@ -771,7 +801,7 @@ class ApiService {
     const currentSubmissions =
       getStoredData(
         LS_KEYS.SUBMISSIONS,
-        initialMockSubmissions
+        []
       );
 
 
@@ -2409,542 +2439,244 @@ class ApiService {
   // QUIZZES API
   // ======================================================
 
-  async getAllQuizzes(
-    orgId
-  ) {
-
-    try {
-
-      if (!this.forceMock) {
-
-        const res =
-          await this.request(
-            "/quizzes/getAllQuizzes?includeQuestions=true"
+  async getAllQuizzes(orgId) {
+    if (!this.forceMock) {
+      try {
+        const res = await this.request("/quizzes/getAll?includeQuestions=true");
+        const list = Array.isArray(res) ? res : (res?.quizzes || res?.data || []);
+        if (Array.isArray(list)) {
+          const formatted = list.map(q => ({
+            ...q,
+            questions: Array.isArray(q.questions)
+              ? q.questions.map(quest => ({
+                  ...quest,
+                  options: typeof quest.options === 'string' ? JSON.parse(quest.options) : (quest.options || [])
+                }))
+              : []
+          }));
+          setStoredData(LS_KEYS.QUIZZES, formatted);
+          if (!orgId) return formatted;
+          const filtered = formatted.filter(
+            q => !q.organization_id || Number(q.organization_id) === Number(orgId) || q.organization_id === orgId
           );
-
-
-        const list =
-          res.quizzes ||
-          res;
-
-
-        if (!orgId) {
-          return list;
+          return filtered.length > 0 ? filtered : formatted;
         }
-
-        return list.filter(
-          q =>
-            !q.organization_id ||
-            Number(q.organization_id) === Number(orgId) ||
-            q.organization_id === orgId
-        );
-      }
-
-    } catch (err) {
-
-      console.warn(
-        "Using mock quizzes fallback:",
-        err.message
-      );
-    }
-
-
-    const currentQuizzes =
-      getStoredData(
-        LS_KEYS.QUIZZES,
-        initialMockQuizzes
-      );
-
-    // Auto-sync published quizzes and refresh question sets in localStorage
-    let needsUpdate = false;
-    for (const defaultQuiz of initialMockQuizzes) {
-      const existingIdx = (currentQuizzes || []).findIndex(q => q.id === defaultQuiz.id);
-      if (existingIdx === -1) {
-        currentQuizzes.push(defaultQuiz);
-        needsUpdate = true;
-      } else {
-        const existingQCount = currentQuizzes[existingIdx]?.questions?.length || 0;
-        const defaultQCount = defaultQuiz?.questions?.length || 0;
-        if (existingQCount < defaultQCount) {
-          currentQuizzes[existingIdx].questions = defaultQuiz.questions;
-          currentQuizzes[existingIdx].total_marks = defaultQuiz.total_marks;
-          needsUpdate = true;
-        }
+      } catch (err) {
+        console.warn("Live getAllQuizzes failed, using cached quizzes:", err.message);
       }
     }
-    if (needsUpdate) {
-      setStoredData(LS_KEYS.QUIZZES, currentQuizzes);
-    }
 
-
-    if (!orgId) {
-      return currentQuizzes;
-    }
-
-    return currentQuizzes.filter(
-      q =>
-        !q.organization_id ||
-        Number(q.organization_id) === Number(orgId) ||
-        q.organization_id === orgId
+    const currentQuizzes = getStoredData(LS_KEYS.QUIZZES, []);
+    if (!orgId) return currentQuizzes;
+    const filtered = currentQuizzes.filter(
+      q => !q.organization_id || Number(q.organization_id) === Number(orgId) || q.organization_id === orgId
     );
+    return filtered.length > 0 ? filtered : currentQuizzes;
   }
 
-
-  async createQuiz(
-    quizData
-  ) {
-
-    try {
-
-      if (!this.forceMock) {
-
-        const res =
-          await this.request(
-            "/quizzes/createQuiz",
-            {
-              method: "POST",
-
-              body:
-                JSON.stringify(
-                  quizData
-                )
-            }
-          );
-
-
-        return (
-          res.quiz ||
-          res
-        );
-      }
-
-    } catch (err) {
-
-      console.warn(
-        "Using mock createQuiz fallback:",
-        err.message
-      );
-    }
-
-
-    const currentQuizzes =
-      getStoredData(
-        LS_KEYS.QUIZZES,
-        initialMockQuizzes
-      );
-
-
-    const newQuiz = {
-
-      id:
-        Date.now(),
-
-      organization_id:
-        Number(
-          quizData.organization_id
-        ) || 1,
-
-      title:
-        quizData.title,
-
-      month:
-        quizData.month ||
-        "Unassigned",
-
-      total_marks:
-        Number(
-          quizData.total_marks
-        ) || 0,
-
-      createdAt:
-        new Date().toISOString(),
-
-      questions:
-        quizData.questions ||
-        []
+  async createQuiz(quizData) {
+    const payload = {
+      title: quizData.title,
+      field: quizData.title,
+      month: quizData.month || "Unassigned",
+      total_marks: Number(quizData.total_marks) || 0,
+      organization_id: Number(quizData.organization_id) || 1,
+      questions: quizData.questions || []
     };
 
+    if (!this.forceMock) {
+      try {
+        const res = await this.request("/quizzes/create", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+        const created = res?.quiz || res?.data || res;
+        if (created && created.id) {
+          const currentQuizzes = getStoredData(LS_KEYS.QUIZZES, []);
+          const fullQuiz = {
+            ...payload,
+            ...created,
+            questions: Array.isArray(created.questions) ? created.questions : (payload.questions || [])
+          };
+          setStoredData(LS_KEYS.QUIZZES, [
+            fullQuiz,
+            ...currentQuizzes.filter(q => String(q.id) !== String(created.id))
+          ]);
+          return fullQuiz;
+        }
+      } catch (err) {
+        console.error("Backend createQuiz failed:", err);
+        throw err;
+      }
+    }
 
-    const updated = [
-      newQuiz,
-      ...currentQuizzes
-    ];
-
-
-    setStoredData(
-      LS_KEYS.QUIZZES,
-      updated
-    );
-
-
+    const currentQuizzes = getStoredData(LS_KEYS.QUIZZES, []);
+    const newQuiz = {
+      id: Date.now(),
+      ...payload,
+      createdAt: new Date().toISOString()
+    };
+    setStoredData(LS_KEYS.QUIZZES, [newQuiz, ...currentQuizzes]);
     return newQuiz;
   }
 
+  async updateQuiz(id, quizData) {
+    if (!this.forceMock) {
+      try {
+        await this.request(`/quizzes/update/${id}`, {
+          method: "PUT",
+          body: JSON.stringify(quizData)
+        });
+      } catch (err) {
+        console.warn("Backend updateQuiz failed, updating locally:", err.message);
+      }
+    }
 
-  async updateQuiz(
-    id,
-    quizData
-  ) {
-
-    const currentQuizzes =
-      getStoredData(
-        LS_KEYS.QUIZZES,
-        initialMockQuizzes
-      );
-
-
-    const updated =
-      currentQuizzes.map(
-        q =>
-          q.id === Number(id) ||
-          q.id === id
-            ? {
-                ...q,
-                ...quizData
-              }
-            : q
-      );
-
-
-    setStoredData(
-      LS_KEYS.QUIZZES,
-      updated
+    const currentQuizzes = getStoredData(LS_KEYS.QUIZZES, []);
+    const updated = currentQuizzes.map(q =>
+      String(q.id) === String(id) ? { ...q, ...quizData } : q
     );
-
-
-    return {
-      message:
-        "Quiz updated successfully"
-    };
+    setStoredData(LS_KEYS.QUIZZES, updated);
+    return { message: "Quiz updated successfully" };
   }
 
+  async deleteQuiz(id) {
+    if (!this.forceMock) {
+      try {
+        await this.request(`/quizzes/delete/${id}`, {
+          method: "DELETE"
+        });
+      } catch (err) {
+        console.warn("Backend deleteQuiz failed, deleting locally:", err.message);
+      }
+    }
 
-  async deleteQuiz(
-    id
-  ) {
-
-    const currentQuizzes =
-      getStoredData(
-        LS_KEYS.QUIZZES,
-        initialMockQuizzes
-      );
-
-
-    const updated =
-      currentQuizzes.filter(
-        q =>
-          q.id !== Number(id) &&
-          q.id !== id
-      );
-
-
-    setStoredData(
-      LS_KEYS.QUIZZES,
-      updated
-    );
-
-
-    return {
-      message:
-        "Quiz deleted successfully"
-    };
+    const currentQuizzes = getStoredData(LS_KEYS.QUIZZES, []);
+    const updated = currentQuizzes.filter(q => String(q.id) !== String(id));
+    setStoredData(LS_KEYS.QUIZZES, updated);
+    return { message: "Quiz deleted successfully" };
   }
-
 
   // ======================================================
   // QUESTIONS API
   // ======================================================
 
-  async getQuestionsByQuizId(
-    quizId
-  ) {
-    try {
-      if (!this.forceMock) {
+  async getQuestionsByQuizId(quizId) {
+    if (!this.forceMock) {
+      try {
         const res = await this.request(`/questions/quiz/${quizId}`);
-        const qList = res.questions || (Array.isArray(res) ? res : null);
-        if (qList && qList.length > 0) {
-          return qList;
+        const qList = res?.questions || (Array.isArray(res) ? res : null);
+        if (Array.isArray(qList)) {
+          return qList.map(q => ({
+            ...q,
+            options: typeof q.options === 'string' ? JSON.parse(q.options) : (q.options || [])
+          }));
         }
+      } catch (err) {
+        console.warn("Live getQuestionsByQuizId failed, checking cached quiz:", err.message);
       }
-    } catch (err) {
-      console.warn("Live getQuestionsByQuizId failed, using stored fallback:", err.message);
     }
 
-    const currentQuizzes =
-      getStoredData(
-        LS_KEYS.QUIZZES,
-        initialMockQuizzes
-      );
-
-    const quiz =
-      currentQuizzes.find(
-        q =>
-          q.id ===
-            Number(quizId) ||
-          q.id ===
-            quizId
-      );
-
-    return quiz
-      ? quiz.questions ||
-          []
-      : [];
+    const currentQuizzes = getStoredData(LS_KEYS.QUIZZES, []);
+    const quiz = currentQuizzes.find(q => String(q.id) === String(quizId));
+    return quiz ? quiz.questions || [] : [];
   }
 
-
-  async createQuestion(
-    questionData
-  ) {
-    let liveCreatedQuestion = null;
-    try {
-      if (!this.forceMock) {
-        const res = await this.request(
-          "/questions/createQuestion",
-          {
-            method: "POST",
-            body: JSON.stringify(questionData)
-          }
-        );
-        liveCreatedQuestion = res.question || res;
+  async createQuestion(questionData) {
+    let createdQuestion = null;
+    if (!this.forceMock) {
+      try {
+        const res = await this.request("/questions/create", {
+          method: "POST",
+          body: JSON.stringify(questionData)
+        });
+        createdQuestion = res?.question || res?.data || res;
+      } catch (err) {
+        console.error("Backend createQuestion failed:", err);
       }
-    } catch (err) {
-      console.warn("Live createQuestion failed, using mock fallback:", err.message);
     }
 
-    const currentQuizzes =
-      getStoredData(
-        LS_KEYS.QUIZZES,
-        initialMockQuizzes
-      );
-
-
-    const newQuestion = {
-
-      id:
-        Date.now(),
-
-      quiz_id:
-        Number(
-          questionData.quiz_id
-        ),
-
-      question_text:
-        questionData.question_text ||
-        questionData.question,
-
-      options:
-        questionData.options,
-
-      correct_answer:
-        questionData.correct_answer ||
-        questionData.answer,
-
-      marks:
-        Number(
-          questionData.marks
-        ) || 1,
-
-      explanation:
-        questionData.explanation ||
-        ""
+    const qItem = createdQuestion || {
+      id: Date.now(),
+      quiz_id: Number(questionData.quiz_id),
+      question_text: questionData.question_text || questionData.question,
+      options: questionData.options,
+      correct_answer: questionData.correct_answer || questionData.answer,
+      marks: Number(questionData.marks) || 1,
+      explanation: questionData.explanation || ""
     };
 
+    const currentQuizzes = getStoredData(LS_KEYS.QUIZZES, []);
+    const updatedQuizzes = currentQuizzes.map(q => {
+      if (String(q.id) === String(questionData.quiz_id)) {
+        const questions = q.questions || [];
+        const exists = questions.some(quest => String(quest.id) === String(qItem.id));
+        return {
+          ...q,
+          questions: exists ? questions : [...questions, qItem],
+          total_marks: (Number(q.total_marks) || 0) + (Number(qItem.marks) || 1)
+        };
+      }
+      return q;
+    });
 
-    const updatedQuizzes =
-      currentQuizzes.map(
-        q => {
-
-          if (
-            q.id ===
-              Number(
-                questionData.quiz_id
-              ) ||
-            q.id ===
-              questionData.quiz_id
-          ) {
-
-            const questions =
-              q.questions ||
-              [];
-
-
-            return {
-
-              ...q,
-
-              questions: [
-                ...questions,
-                newQuestion
-              ],
-
-              total_marks:
-                (
-                  Number(
-                    q.total_marks
-                  ) || 0
-                ) +
-                newQuestion.marks
-            };
-          }
-
-
-          return q;
-        }
-      );
-
-
-    setStoredData(
-      LS_KEYS.QUIZZES,
-      updatedQuizzes
-    );
-
-
-    return liveCreatedQuestion || newQuestion;
+    setStoredData(LS_KEYS.QUIZZES, updatedQuizzes);
+    return qItem;
   }
 
-
-  async updateQuestion(
-    id,
-    questionData
-  ) {
-    try {
-      if (!this.forceMock) {
-        await this.request(
-          `/questions/updateQuestion/${id}`,
-          {
-            method: "PUT",
-            body: JSON.stringify(questionData)
-          }
-        );
+  async updateQuestion(id, questionData) {
+    if (!this.forceMock) {
+      try {
+        await this.request(`/questions/update/${id}`, {
+          method: "PUT",
+          body: JSON.stringify(questionData)
+        });
+      } catch (err) {
+        console.warn("Backend updateQuestion failed, updating locally:", err.message);
       }
-    } catch (err) {
-      console.warn("Live updateQuestion failed, updating locally:", err.message);
     }
 
-    const currentQuizzes =
-      getStoredData(
-        LS_KEYS.QUIZZES,
-        initialMockQuizzes
-      );
+    const currentQuizzes = getStoredData(LS_KEYS.QUIZZES, []);
+    const updatedQuizzes = currentQuizzes.map(q => {
+      if (q.questions && q.questions.some(quest => String(quest.id) === String(id))) {
+        return {
+          ...q,
+          questions: q.questions.map(quest =>
+            String(quest.id) === String(id) ? { ...quest, ...questionData } : quest
+          )
+        };
+      }
+      return q;
+    });
 
-
-    const updatedQuizzes =
-      currentQuizzes.map(
-        q => {
-
-          if (q.questions) {
-
-            const updatedQuestions =
-              q.questions.map(
-                question => {
-
-                  if (
-                    question.id ===
-                      Number(id) ||
-                    question.id ===
-                      id
-                  ) {
-
-                    return {
-                      ...question,
-                      ...questionData
-                    };
-                  }
-
-
-                  return question;
-                }
-              );
-
-
-            return {
-
-              ...q,
-
-              questions:
-                updatedQuestions
-            };
-          }
-
-
-          return q;
-        }
-      );
-
-
-    setStoredData(
-      LS_KEYS.QUIZZES,
-      updatedQuizzes
-    );
-
-
-    return {
-      message:
-        "Question updated successfully"
-    };
+    setStoredData(LS_KEYS.QUIZZES, updatedQuizzes);
+    return { message: "Question updated successfully" };
   }
 
-
-  async deleteQuestion(
-    id
-  ) {
-    try {
-      if (!this.forceMock) {
-        await this.request(
-          `/questions/deleteQuestion/${id}`,
-          {
-            method: "DELETE"
-          }
-        );
+  async deleteQuestion(id) {
+    if (!this.forceMock) {
+      try {
+        await this.request(`/questions/delete/${id}`, {
+          method: "DELETE"
+        });
+      } catch (err) {
+        console.warn("Backend deleteQuestion failed, deleting locally:", err.message);
       }
-    } catch (err) {
-      console.warn("Live deleteQuestion failed, deleting locally:", err.message);
     }
 
-    const currentQuizzes =
-      getStoredData(
-        LS_KEYS.QUIZZES,
-        initialMockQuizzes
-      );
+    const currentQuizzes = getStoredData(LS_KEYS.QUIZZES, []);
+    const updatedQuizzes = currentQuizzes.map(q => {
+      if (q.questions && q.questions.some(quest => String(quest.id) === String(id))) {
+        return {
+          ...q,
+          questions: q.questions.filter(quest => String(quest.id) !== String(id))
+        };
+      }
+      return q;
+    });
 
-
-    const updatedQuizzes =
-      currentQuizzes.map(
-        q => {
-
-          if (q.questions) {
-
-            return {
-
-              ...q,
-
-              questions:
-                q.questions.filter(
-                  question =>
-                    question.id !==
-                      Number(id) &&
-                    question.id !==
-                      id
-                )
-            };
-          }
-
-
-          return q;
-        }
-      );
-
-
-    setStoredData(
-      LS_KEYS.QUIZZES,
-      updatedQuizzes
-    );
-
-
-    return {
-      message:
-        "Question deleted successfully"
-    };
+    setStoredData(LS_KEYS.QUIZZES, updatedQuizzes);
+    return { message: "Question deleted successfully" };
   }
 
 
@@ -2965,9 +2697,9 @@ class ApiService {
       console.warn("submitQuiz live failed, using mock storage fallback:", err.message);
     }
 
-    const currentQuizzes = getStoredData(LS_KEYS.QUIZZES, initialMockQuizzes);
+    const currentQuizzes = getStoredData(LS_KEYS.QUIZZES, []);
     const quiz = currentQuizzes.find(q => String(q.id) === String(quizId)) || currentQuizzes[0];
-    const questions = quiz.questions || [];
+    const questions = quiz?.questions || [];
     let score = 0;
     let totalMarks = 0;
     const wrongQuestions = [];
@@ -3047,7 +2779,7 @@ class ApiService {
       createdAt: new Date().toISOString()
     };
 
-    const currentSubs = getStoredData(LS_KEYS.SUBMISSIONS, initialMockSubmissions);
+    const currentSubs = getStoredData(LS_KEYS.SUBMISSIONS, []);
     setStoredData(LS_KEYS.SUBMISSIONS, [newSub, ...currentSubs]);
 
     return {
@@ -3069,7 +2801,7 @@ class ApiService {
       console.warn("getStudentProgress live check failed, using mock storage fallback:", err.message);
     }
 
-    const currentSubs = getStoredData(LS_KEYS.SUBMISSIONS, initialMockSubmissions);
+    const currentSubs = getStoredData(LS_KEYS.SUBMISSIONS, []);
     const userSubs = currentSubs.filter(s => !userId || userId === 'all' || String(s.user_id) === String(userId));
 
     const totalScore = userSubs.reduce((acc, c) => acc + (Number(c.score) || 0), 0);
@@ -3125,7 +2857,7 @@ class ApiService {
     } catch (err) {
       console.warn("getQuizSubmissions live failed, using mock storage fallback:", err.message);
     }
-    const currentSubs = getStoredData(LS_KEYS.SUBMISSIONS, initialMockSubmissions);
+    const currentSubs = getStoredData(LS_KEYS.SUBMISSIONS, []);
     return currentSubs.filter(s => String(s.quiz_id) === String(quizId));
   }
 
@@ -3142,34 +2874,32 @@ class ApiService {
           ? response
           : (response?.data || response?.notes || []);
 
-        if (Array.isArray(list) && list.length > 0) {
-          const currentNotes = getStoredData(LS_KEYS.NOTES, initialMockNotes);
-          const merged = [...list];
-          currentNotes.forEach(localNote => {
-            if (!merged.find(m => String(m.id) === String(localNote.id))) {
-              merged.push(localNote);
-            }
-          });
-          setStoredData(LS_KEYS.NOTES, merged);
+        if (Array.isArray(list)) {
+          setStoredData(LS_KEYS.NOTES, list);
+          let filtered = list;
+          if (orgId) {
+            filtered = filtered.filter(
+              n => !n.organization_id || n.organization_id === Number(orgId) || n.organization_id === orgId
+            );
+          }
+          if (batchId) {
+            filtered = filtered.filter(
+              n => !n.batch_id || n.batch_id === "all" || Number(n.batch_id) === Number(batchId)
+            );
+          }
+          return filtered;
         }
       } catch (err) {
         console.warn('Backend notes fetch failed, using cached notes:', err.message);
       }
     }
 
-    let currentNotes = getStoredData(LS_KEYS.NOTES, initialMockNotes);
-
-    // Auto-migrate old notes
-    if (currentNotes.length > 0 && currentNotes[0].batch_id === undefined) {
-      currentNotes = initialMockNotes;
-      setStoredData(LS_KEYS.NOTES, currentNotes);
-    }
-
+    let currentNotes = getStoredData(LS_KEYS.NOTES, []);
     let filtered = currentNotes;
 
     if (orgId) {
       filtered = filtered.filter(
-        n => n.organization_id === Number(orgId) || n.organization_id === orgId
+        n => !n.organization_id || n.organization_id === Number(orgId) || n.organization_id === orgId
       );
     }
 
@@ -3203,20 +2933,21 @@ class ApiService {
         });
         const created = response?.data || response?.note || response;
         if (created && created.id) {
-          const currentNotes = getStoredData(LS_KEYS.NOTES, initialMockNotes);
+          const currentNotes = getStoredData(LS_KEYS.NOTES, []);
           const fullNote = { ...payload, ...created };
           setStoredData(LS_KEYS.NOTES, [
             fullNote,
-            ...currentNotes.filter(n => n.id !== created.id)
+            ...currentNotes.filter(n => String(n.id) !== String(created.id))
           ]);
           return fullNote;
         }
       } catch (err) {
-        console.warn('Backend note create failed, using local storage:', err.message);
+        console.error('Backend note create failed:', err);
+        throw err;
       }
     }
 
-    const currentNotes = getStoredData(LS_KEYS.NOTES, initialMockNotes);
+    const currentNotes = getStoredData(LS_KEYS.NOTES, []);
     const newNote = {
       id: Date.now(),
       ...payload,
@@ -3240,9 +2971,9 @@ class ApiService {
       }
     }
 
-    const currentNotes = getStoredData(LS_KEYS.NOTES, initialMockNotes);
+    const currentNotes = getStoredData(LS_KEYS.NOTES, []);
     const updated = currentNotes.map(n =>
-      n.id === Number(id) || n.id === id
+      String(n.id) === String(id)
         ? {
             ...n,
             ...noteData,
@@ -3271,8 +3002,8 @@ class ApiService {
       }
     }
 
-    const currentNotes = getStoredData(LS_KEYS.NOTES, initialMockNotes);
-    const updated = currentNotes.filter(n => n.id !== Number(id) && n.id !== id);
+    const currentNotes = getStoredData(LS_KEYS.NOTES, []);
+    const updated = currentNotes.filter(n => String(n.id) !== String(id));
     setStoredData(LS_KEYS.NOTES, updated);
     return { message: "Note deleted successfully" };
   }
