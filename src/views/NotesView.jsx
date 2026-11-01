@@ -26,6 +26,7 @@ import { api } from '../services/api';
 import { useToast } from '../components/Toast';
 import { Modal } from '../components/Modal';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { filterAccessibleNotes } from '../utils/batchFilter';
 
 export const NotesView = ({ user }) => {
   const location = useLocation();
@@ -276,10 +277,11 @@ export const NotesView = ({ user }) => {
     }
   };
 
-  const normalizeStr = (s) => (s || '').toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+  // Accessible notes strictly resolved by student cohort/batch
+  const accessibleNotes = filterAccessibleNotes(notes, user, batches);
 
-  // Filter notes with strict batch isolation for students
-  const filteredNotes = notes.filter((n) => {
+  // Filter notes with search, class, type, and batch filter
+  const filteredNotes = accessibleNotes.filter((n) => {
     const matchesSearch =
       n.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       n.topic?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -290,39 +292,6 @@ export const NotesView = ({ user }) => {
     const matchesBatch = isAdmin
       ? batchFilter === 'all' || String(n.batch_id) === String(batchFilter)
       : true;
-
-    // Strict student cohort / batch isolation:
-    if (isStudent) {
-      const sBatchName = (studentBatch?.name || user?.batch_name || user?.class || '').trim().toLowerCase();
-      const sBatchId = studentBatch?.id ? String(studentBatch.id) : (user?.batch_id ? String(user.batch_id) : '');
-      const sBatchCode = (studentBatch?.join_code || user?.tuition_code || '').trim().toUpperCase();
-
-      const nBatchName = (n.batch_name || '').trim().toLowerCase();
-      const nBatchId = n.batch_id ? String(n.batch_id) : '';
-      const nClass = (n.class || '').trim().toLowerCase();
-
-      // Check if note is explicitly open to all batches
-      const isAllBatches =
-        (!n.batch_id && !n.batch_name && !n.class) ||
-        n.batch_id === 'all' ||
-        n.batch_name === 'All Batches' ||
-        n.batch_name === 'all' ||
-        n.class === 'All Classes' ||
-        n.class === 'General';
-
-      if (!isAllBatches) {
-        // Must match student's specific batch
-        const idMatches = sBatchId && nBatchId && sBatchId === nBatchId;
-        const nameMatches =
-          (sBatchName && nBatchName && (sBatchName === nBatchName || normalizeStr(sBatchName) === normalizeStr(nBatchName))) ||
-          (sBatchName && nClass && (sBatchName === nClass || normalizeStr(sBatchName) === normalizeStr(nClass)));
-        const codeMatches = sBatchCode && (nBatchName.toUpperCase() === sBatchCode || nClass.toUpperCase() === sBatchCode);
-
-        if (!idMatches && !nameMatches && !codeMatches) {
-          return false;
-        }
-      }
-    }
 
     return matchesSearch && matchesClass && matchesType && matchesBatch;
   });

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Compass, Sparkles, ArrowRight, TrendingUp } from 'lucide-react';
 import { api } from '../services/api';
 import { useToast } from '../components/Toast';
+import { filterAccessibleNotes } from '../utils/batchFilter';
 
 export const DashboardView = ({ user }) => {
   const navigate = useNavigate();
@@ -13,18 +14,18 @@ export const DashboardView = ({ user }) => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const isStudent = user?.role?.toLowerCase() === 'student';
-        const studentBatchId = isStudent ? user?.batch_id : null;
-        const [users, quizzes, notes] = await Promise.all([
+        const [users, quizzes, notes, batches] = await Promise.all([
           api.getAllUsers(user?.organization_id),
           api.getAllQuizzes(user?.organization_id),
-          api.getAllNotes(user?.organization_id, studentBatchId)
+          api.getAllNotes(user?.organization_id),
+          api.getBatchesByOrganization ? api.getBatchesByOrganization(user?.organization_id) : []
         ]);
+        const accessibleNotes = filterAccessibleNotes(notes, user, batches);
         const totalQuestions = quizzes.reduce((sum, q) => sum + (q.questions ? q.questions.length : 0), 0);
         setStats({
           users: users ? users.length : 0,
           quizzes: quizzes ? quizzes.length : 0,
-          notes: notes ? notes.length : 0,
+          notes: accessibleNotes ? accessibleNotes.length : 0,
           questions: totalQuestions
         });
       } catch (err) {

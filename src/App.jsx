@@ -14,6 +14,7 @@ import { AiStudioView } from './views/AiStudioView';
 import { LoginView } from './views/LoginView';
 import { ResetPasswordView } from './views/ResetPasswordView';
 import { api, getDeviceId } from './services/api';
+import { filterAccessibleNotes } from './utils/batchFilter';
 
 import { useSelector, useDispatch } from 'react-redux';
 import { logout, setAuth, verifySession } from './store/slices/authSlice';
@@ -69,18 +70,18 @@ function App() {
     if (isAuthenticated) {
       (async () => {
         try {
-          const studentBatchId = adminUser?.role === 'student' ? adminUser?.batch_id : null;
           const [users, quizzes, notes, organizations, batches] = await Promise.all([
             api.getAllUsers(adminUser?.organization_id),
             api.getAllQuizzes(adminUser?.organization_id),
-            api.getAllNotes(adminUser?.organization_id, studentBatchId),
+            api.getAllNotes(adminUser?.organization_id),
             api.getAllOrganizations ? api.getAllOrganizations() : [],
             api.getBatchesByOrganization ? api.getBatchesByOrganization(adminUser?.organization_id) : []
           ]);
+          const accessibleNotes = filterAccessibleNotes(notes, adminUser, batches);
           setCounts({
             users: users ? users.length : 0,
             quizzes: quizzes ? quizzes.length : 0,
-            notes: notes ? notes.length : 0,
+            notes: accessibleNotes ? accessibleNotes.length : 0,
             organizations: organizations ? organizations.length : 0,
             batches: batches ? batches.length : 0
           });
