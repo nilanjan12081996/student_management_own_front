@@ -69,16 +69,26 @@ export const NotesView = ({ user }) => {
 
   const { success, error } = useToast();
 
+  // Resolve student's enrolled batch details
+  const studentBatch = isStudent
+    ? batches.find(
+        (b) =>
+          (user?.class && b.name?.trim().toLowerCase() === user.class.trim().toLowerCase()) ||
+          (user?.batch_name && b.name?.trim().toLowerCase() === user.batch_name.trim().toLowerCase()) ||
+          (user?.tuition_code && b.join_code?.trim().toUpperCase() === user.tuition_code.trim().toUpperCase()) ||
+          (user?.batch_id && String(b.id) === String(user.batch_id))
+      )
+    : null;
+
   const fetchNotes = async () => {
     setLoading(true);
     try {
       const orgId = user?.organization_id || 1;
-      const studentBatchId = isStudent ? user?.batch_id : null;
       const [notesData, batchesData] = await Promise.all([
-        api.getAllNotes(orgId, studentBatchId),
+        api.getAllNotes(orgId),
         api.getBatchesByOrganization(orgId)
       ]);
-      setNotes(notesData);
+      setNotes(notesData || []);
       setBatches(batchesData || []);
     } catch (err) {
       console.error(err);
@@ -169,6 +179,7 @@ export const NotesView = ({ user }) => {
 
       await api.createNote({
         ...formData,
+        class: batchName !== 'All Batches' ? batchName : (formData.class || 'All Classes'),
         organization_id: user?.organization_id || 1,
         batch_id: formData.batch_id === 'all' ? null : Number(formData.batch_id),
         batch_name: batchName
@@ -190,6 +201,17 @@ export const NotesView = ({ user }) => {
 
   const handleEditClick = (note) => {
     setSelectedNote(note);
+    let matchedBatchId = 'all';
+    if (note.batch_id) {
+      matchedBatchId = String(note.batch_id);
+    } else if (note.batch_name) {
+      const found = batches.find((b) => b.name?.trim().toLowerCase() === note.batch_name?.trim().toLowerCase());
+      if (found) matchedBatchId = String(found.id);
+    } else if (note.class) {
+      const found = batches.find((b) => b.name?.trim().toLowerCase() === note.class?.trim().toLowerCase());
+      if (found) matchedBatchId = String(found.id);
+    }
+
     setFormData({
       title: note.title || '',
       topic: note.topic || '',
@@ -197,7 +219,7 @@ export const NotesView = ({ user }) => {
       semester: note.semester || 'Semester 1',
       content_type: note.content_type || 'text',
       content_url: note.content_url || '',
-      batch_id: note.batch_id ? String(note.batch_id) : 'all',
+      batch_id: matchedBatchId,
       batch_name: note.batch_name || 'All Batches'
     });
     setIsEditModalOpen(true);
@@ -217,6 +239,7 @@ export const NotesView = ({ user }) => {
 
       await api.updateNote(selectedNote.id, {
         ...formData,
+        class: batchName !== 'All Batches' ? batchName : (formData.class || 'All Classes'),
         batch_id: formData.batch_id === 'all' ? null : Number(formData.batch_id),
         batch_name: batchName
       });
@@ -253,22 +276,52 @@ export const NotesView = ({ user }) => {
     }
   };
 
+  const normalizeStr = (s) => (s || '').toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+
   // Filter notes with strict batch isolation for students
   const filteredNotes = notes.filter((n) => {
     const matchesSearch =
       n.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       n.topic?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      n.batch_name?.toLowerCase().includes(searchTerm.toLowerCase());
+      n.batch_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      n.class?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesClass = classFilter === 'all' || n.class?.toLowerCase() === classFilter.toLowerCase();
     const matchesType = typeFilter === 'all' || n.content_type?.toLowerCase() === typeFilter.toLowerCase();
     const matchesBatch = isAdmin
       ? batchFilter === 'all' || String(n.batch_id) === String(batchFilter)
       : true;
 
-    // Strict student cohort isolation:
-    if (isStudent && user?.batch_id) {
-      const allowed = !n.batch_id || n.batch_id === 'all' || Number(n.batch_id) === Number(user.batch_id);
-      if (!allowed) return false;
+    // Strict student cohort / batch isolation:
+    if (isStudent) {
+      const sBatchName = (studentBatch?.name || user?.batch_name || user?.class || '').trim().toLowerCase();
+      const sBatchId = studentBatch?.id ? String(studentBatch.id) : (user?.batch_id ? String(user.batch_id) : '');
+      const sBatchCode = (studentBatch?.join_code || user?.tuition_code || '').trim().toUpperCase();
+
+      const nBatchName = (n.batch_name || '').trim().toLowerCase();
+      const nBatchId = n.batch_id ? String(n.batch_id) : '';
+      const nClass = (n.class || '').trim().toLowerCase();
+
+      // Check if note is explicitly open to all batches
+      const isAllBatches =
+        (!n.batch_id && !n.batch_name && !n.class) ||
+        n.batch_id === 'all' ||
+        n.batch_name === 'All Batches' ||
+        n.batch_name === 'all' ||
+        n.class === 'All Classes' ||
+        n.class === 'General';
+
+      if (!isAllBatches) {
+        // Must match student's specific batch
+        const idMatches = sBatchId && nBatchId && sBatchId === nBatchId;
+        const nameMatches =
+          (sBatchName && nBatchName && (sBatchName === nBatchName || normalizeStr(sBatchName) === normalizeStr(nBatchName))) ||
+          (sBatchName && nClass && (sBatchName === nClass || normalizeStr(sBatchName) === normalizeStr(nClass)));
+        const codeMatches = sBatchCode && (nBatchName.toUpperCase() === sBatchCode || nClass.toUpperCase() === sBatchCode);
+
+        if (!idMatches && !nameMatches && !codeMatches) {
+          return false;
+        }
+      }
     }
 
     return matchesSearch && matchesClass && matchesType && matchesBatch;
@@ -340,7 +393,7 @@ export const NotesView = ({ user }) => {
             </div>
             <div>
               <div style={{ fontSize: '0.925rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                Enrolled Cohort: {user?.batch_name || 'Assigned Tuition Batch'}
+                Enrolled Cohort: {studentBatch?.name || user?.batch_name || user?.class || 'Assigned Tuition Batch'}
               </div>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                 Access Restricted: Showing study notes and PDF materials allocated exclusively to your batch.
@@ -641,7 +694,16 @@ export const NotesView = ({ user }) => {
             <select
               className="form-control"
               value={formData.batch_id}
-              onChange={(e) => setFormData({ ...formData, batch_id: e.target.value })}
+              onChange={(e) => {
+                const bId = e.target.value;
+                const found = batches.find((b) => String(b.id) === String(bId));
+                setFormData({
+                  ...formData,
+                  batch_id: bId,
+                  batch_name: found ? found.name : 'All Batches',
+                  class: found ? found.name : formData.class
+                });
+              }}
             >
               <option value="all">All Batches (Accessible to all enrolled students)</option>
               {batches.map((b) => (
@@ -775,7 +837,16 @@ export const NotesView = ({ user }) => {
             <select
               className="form-control"
               value={formData.batch_id}
-              onChange={(e) => setFormData({ ...formData, batch_id: e.target.value })}
+              onChange={(e) => {
+                const bId = e.target.value;
+                const found = batches.find((b) => String(b.id) === String(bId));
+                setFormData({
+                  ...formData,
+                  batch_id: bId,
+                  batch_name: found ? found.name : 'All Batches',
+                  class: found ? found.name : formData.class
+                });
+              }}
             >
               <option value="all">All Batches (Accessible to all enrolled students)</option>
               {batches.map((b) => (
