@@ -46,3 +46,4 @@ export const filterAccessibleNotes = (notes, user, batches = []) => {
     return !!(idMatches || nameMatches || codeMatches);
   });
 };
+
