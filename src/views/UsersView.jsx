@@ -658,14 +658,7 @@ const handleGeneratePassSubmit = async (e) => {
           SECURITY OVERVIEW
       ====================================================== */}
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns:
-            'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: '1rem',
-          marginBottom: '1.5rem'
-        }}
+      <div className="stat-grid"
       >
 
         {/* Enrolled Students */}

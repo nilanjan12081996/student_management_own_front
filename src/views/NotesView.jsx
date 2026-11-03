@@ -505,7 +505,7 @@ export const NotesView = ({ user }) => {
             return (
               <div
                 key={note.id}
-                className="card card-interactive"
+                className="card card-interactive note-card"
                 style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}
               >
                 <div>
@@ -515,12 +515,6 @@ export const NotesView = ({ user }) => {
                       {note.content_type ? note.content_type.toUpperCase() : 'TEXT'}
                     </span>
                     <div className="table-actions">
-                      <button onClick={() => handleViewClick(note)} className="btn-icon btn-ghost" title="View Note">
-                        <Eye size={16} />
-                      </button>
-                      <button onClick={() => handleDownloadNote(note)} className="btn-icon btn-ghost" title="Download Note" style={{ color: 'var(--primary)' }}>
-                        <Download size={16} />
-                      </button>
                       {isAdmin && (
                         <>
                           <button onClick={() => handleEditClick(note)} className="btn-icon btn-ghost" title="Edit Note">
@@ -545,7 +539,11 @@ export const NotesView = ({ user }) => {
                       fontWeight: 700,
                       color: 'var(--text-main)',
                       marginBottom: '0.5rem',
-                      lineHeight: '1.3'
+                      lineHeight: '1.3',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden'
                     }}
                   >
                     {note.title}
@@ -561,52 +559,43 @@ export const NotesView = ({ user }) => {
                       fontSize: '0.85rem',
                       color: 'var(--text-muted)',
                       display: '-webkit-box',
-                      WebkitLineClamp: 3,
+                      WebkitLineClamp: 2,
                       WebkitBoxOrient: 'vertical',
                       overflow: 'hidden',
-                      marginBottom: '1rem'
+                      marginBottom: '1rem',
+                      wordBreak: 'break-all',
+                      overflowWrap: 'anywhere'
                     }}
                   >
-                    {isPdf ? note.content_url : note.content_url}
+                    {note.content_url}
                   </p>
                 </div>
 
-                <div
-                  style={{
-                    paddingTop: '0.85rem',
-                    borderTop: '1px solid var(--border-subtle)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    fontSize: '0.8rem',
-                    color: 'var(--text-faint)'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                      <GraduationCap size={14} />
+                <div className="note-card-footer">
+                  <div className="note-card-meta">
+                    <div className="note-meta-badge">
+                      <GraduationCap size={13} />
                       <span>{note.class || 'General'} • {note.semester || 'S1'}</span>
                     </div>
                     <span
-                      className="badge badge-secondary"
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.3rem',
-                        fontSize: '0.72rem',
-                        fontWeight: 600
-                      }}
+                      className="badge badge-secondary note-batch-badge"
                     >
                       <Layers size={11} color="var(--primary)" />
                       {note.batch_name || 'All Batches'}
                     </span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <button className="btn btn-ghost btn-sm" onClick={() => handleViewClick(note)} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                      <Eye size={13} /> View
+                  <div className="note-card-actions">
+                    <button
+                      className="btn btn-secondary btn-sm note-btn-view"
+                      onClick={() => handleViewClick(note)}
+                    >
+                      <Eye size={14} /> <span>View</span>
                     </button>
-                    <button className="btn btn-secondary btn-sm" onClick={() => handleDownloadNote(note)} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                      <Download size={13} /> Download
+                    <button
+                      className="btn btn-primary btn-sm note-btn-download"
+                      onClick={() => handleDownloadNote(note)}
+                    >
+                      <Download size={14} /> <span>Download</span>
                     </button>
                   </div>
                 </div>

@@ -474,13 +474,7 @@ export const QuizzesView = ({ user }) => {
           </div>
         </div>
       ) : (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-            gap: '1.25rem',
-            marginBottom: '2rem'
-          }}
+        <div className="responsive-card-grid" style={{ marginBottom: "2rem" }}
         >
           {filteredQuizzes.map((quiz) => {
             const questionCount = quiz.questions ? quiz.questions.length : 0;

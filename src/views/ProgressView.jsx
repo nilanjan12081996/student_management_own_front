@@ -216,13 +216,7 @@ export const ProgressView = ({ user }) => {
       ) : (
         <>
                     {/* Top Metrics Cards */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-              gap: '1.25rem',
-              marginBottom: '2rem'
-            }}
+          <div className="stat-grid"
           >
             <div className="stat-card" style={{ '--card-gradient': 'var(--primary-light)' }}>
               <div className="stat-icon" style={{ background: 'var(--primary-light)' }}>
