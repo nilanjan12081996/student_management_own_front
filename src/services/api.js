@@ -101,6 +101,15 @@ export const getDeviceId = () => {
 // LOCAL STORAGE KEYS
 // ======================================================
 
+const inferSemesterFromText = (text, fallback = null) => {
+  if (!text) return fallback;
+  const match1 = text.match(/sem(?:ester)?\s*(\d+)/i);
+  if (match1 && match1[1]) return `Semester ${match1[1]}`;
+  const match2 = text.match(/(\d+)(?:st|nd|rd|th)?\s*sem/i);
+  if (match2 && match2[1]) return `Semester ${match2[1]}`;
+  return fallback;
+};
+
 const LS_KEYS = {
 
   USERS:

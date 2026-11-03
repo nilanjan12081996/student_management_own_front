@@ -28,6 +28,15 @@ import { Modal } from '../components/Modal';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { filterAccessibleNotes } from '../utils/batchFilter';
 
+const inferSemesterFromText = (text, fallback = '') => {
+  if (!text) return fallback;
+  const match1 = text.match(/sem(?:ester)?\s*(\d+)/i);
+  if (match1 && match1[1]) return `Semester ${match1[1]}`;
+  const match2 = text.match(/(\d+)(?:st|nd|rd|th)?\s*sem/i);
+  if (match2 && match2[1]) return `Semester ${match2[1]}`;
+  return fallback;
+};
+
 export const NotesView = ({ user }) => {
   const location = useLocation();
   const role = user?.role?.toLowerCase();
@@ -61,7 +70,7 @@ export const NotesView = ({ user }) => {
     title: '',
     topic: '',
     class: 'Computer Science',
-    semester: 'Semester 1',
+    semester: 'Semester 3',
     content_type: 'text',
     content_url: '',
     batch_id: 'all',
@@ -575,14 +584,22 @@ export const NotesView = ({ user }) => {
                   <div className="note-card-meta">
                     <div className="note-meta-badge">
                       <GraduationCap size={13} />
-                      <span>{note.class || 'General'} • {note.semester || 'S1'}</span>
+                      <span>{note.batch_name || note.class || 'General'}</span>
                     </div>
-                    <span
-                      className="badge badge-secondary note-batch-badge"
-                    >
-                      <Layers size={11} color="var(--primary)" />
-                      {note.batch_name || 'All Batches'}
-                    </span>
+                    {(() => {
+                      const detected = inferSemesterFromText(`${note.batch_name || ''} ${note.class || ''}`) || note.semester;
+                      const isRedundant = (note.class || '').toLowerCase().includes((detected || '').toLowerCase()) || 
+                                          (note.batch_name || '').toLowerCase().includes((detected || '').toLowerCase());
+                      if (detected && detected !== 'None' && !isRedundant) {
+                        return (
+                          <span className="badge badge-secondary note-batch-badge">
+                            <Layers size={11} color="var(--primary)" />
+                            {detected}
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                   <div className="note-card-actions">
                     <button

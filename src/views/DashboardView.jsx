@@ -60,7 +60,7 @@ export const DashboardView = ({ user }) => {
         <p className="page-subtitle">
           {isAdmin
             ? 'Manage student accounts, quiz assessments, and study materials'
-            : `Cohort: ${user?.batch_name || 'Tuition Batch'} • Class: ${user?.class || 'Computer Science'} • ${user?.semester || 'Semester 1'}`}
+            : `Cohort: ${user?.batch_name || user?.class || 'BCA 3rd SEM'}${user?.semester && !((user?.batch_name || user?.class || '').toLowerCase().includes('sem')) ? ` • ${user.semester}` : ''}`}
         </p>
       </div>
 
