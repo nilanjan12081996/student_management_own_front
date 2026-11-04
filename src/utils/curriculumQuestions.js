@@ -322,3 +322,4 @@ export function generateSmartQuestions({ topic, referenceText, count, difficulty
 
   return result.slice(0, targetCount);
 }
+
