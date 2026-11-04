@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Sparkles,
   BrainCircuit,
@@ -310,55 +311,285 @@ export const AiStudioView = ({ user }) => {
 
       {/* TAB 1: MCQ GENERATOR */}
       {activeSubTab === 'mcq' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 380px) 1fr', gap: '1.5rem', alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(330px, 420px) 1fr', gap: '1.5rem', alignItems: 'start' }}>
           {/* Controls Card */}
-          <div className="card">
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div className="card" style={{ padding: '1.5rem' }}>
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <Sparkles size={18} color="var(--primary)" />
-              Generate Questions
+              Generate Quiz from Reference
             </h3>
+
+            {/* Reference Mode Switcher */}
+            <div style={{ marginBottom: '1.25rem' }}>
+              <label className="form-label" style={{ marginBottom: '0.5rem' }}>Reference Material Source</label>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr 1fr',
+                  gap: '0.4rem',
+                  background: 'var(--bg-app)',
+                  padding: '0.3rem',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-subtle)'
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setReferenceMode('file')}
+                  style={{
+                    padding: '0.5rem 0.4rem',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    borderRadius: 'var(--radius-sm)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.35rem',
+                    background: referenceMode === 'file' ? 'var(--bg-card)' : 'transparent',
+                    color: referenceMode === 'file' ? 'var(--primary)' : 'var(--text-muted)',
+                    boxShadow: referenceMode === 'file' ? 'var(--shadow-sm)' : 'none'
+                  }}
+                >
+                  <Upload size={14} />
+                  <span>Upload File</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setReferenceMode('text')}
+                  style={{
+                    padding: '0.5rem 0.4rem',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    borderRadius: 'var(--radius-sm)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.35rem',
+                    background: referenceMode === 'text' ? 'var(--bg-card)' : 'transparent',
+                    color: referenceMode === 'text' ? 'var(--primary)' : 'var(--text-muted)',
+                    boxShadow: referenceMode === 'text' ? 'var(--shadow-sm)' : 'none'
+                  }}
+                >
+                  <FileText size={14} />
+                  <span>Paste Text</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setReferenceMode('topic')}
+                  style={{
+                    padding: '0.5rem 0.4rem',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    borderRadius: 'var(--radius-sm)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.35rem',
+                    background: referenceMode === 'topic' ? 'var(--bg-card)' : 'transparent',
+                    color: referenceMode === 'topic' ? 'var(--primary)' : 'var(--text-muted)',
+                    boxShadow: referenceMode === 'topic' ? 'var(--shadow-sm)' : 'none'
+                  }}
+                >
+                  <Lightbulb size={14} />
+                  <span>Topic Only</span>
+                </button>
+              </div>
+            </div>
+
             <form onSubmit={handleGenerateMcqs}>
+              {/* Option A: Upload File (PDF / DOC / TXT) */}
+              {referenceMode === 'file' && (
+                <div style={{ marginBottom: '1.25rem' }}>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept=".pdf,.txt,.md,.doc,.docx"
+                    style={{ display: 'none' }}
+                    onChange={(e) => handleFileUpload(e.target.files?.[0])}
+                  />
+
+                  {!uploadedFile ? (
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                      onDragLeave={() => setIsDragging(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsDragging(false);
+                        const file = e.dataTransfer.files?.[0];
+                        if (file) handleFileUpload(file);
+                      }}
+                      style={{
+                        border: `2px dashed ${isDragging ? 'var(--primary)' : 'var(--border-medium)'}`,
+                        background: isDragging ? 'var(--primary-light)' : 'var(--bg-surface)',
+                        borderRadius: 'var(--radius-md)',
+                        padding: '1.75rem 1rem',
+                        textAlign: 'center',
+                        cursor: 'pointer',
+                        transition: 'all var(--transition-fast)'
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: '46px',
+                          height: '46px',
+                          borderRadius: '12px',
+                          background: 'var(--primary-light)',
+                          color: 'var(--primary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          margin: '0 auto 0.75rem'
+                        }}
+                      >
+                        <Upload size={22} />
+                      </div>
+                      <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-main)', marginBottom: '0.25rem' }}>
+                        Click to browse or drag & drop PDF / text
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        Supports PDF, TXT, MD, DOC (up to 25MB)
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        background: 'var(--bg-surface)',
+                        border: '1px solid var(--border-medium)',
+                        borderRadius: 'var(--radius-md)',
+                        padding: '0.85rem 1rem'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', overflow: 'hidden' }}>
+                          <span className="badge badge-primary" style={{ padding: '0.35rem 0.55rem' }}>
+                            <FileText size={14} />
+                            {uploadedFile.name.endsWith('.pdf') ? 'PDF' : 'DOC'}
+                          </span>
+                          <div style={{ overflow: 'hidden' }}>
+                            <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {uploadedFile.name}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                              {(uploadedFile.size / 1024).toFixed(1)} KB • Reference loaded
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleClearFile}
+                          className="btn-icon btn-ghost"
+                          title="Remove uploaded file"
+                          style={{ color: 'var(--danger)', flexShrink: 0 }}
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+
+                      {extractedText && (
+                        <div style={{ marginTop: '0.75rem', borderTop: '1px solid var(--border-subtle)', paddingTop: '0.5rem' }}>
+                          <button
+                            type="button"
+                            onClick={() => setShowExtractedPreview(prev => !prev)}
+                            className="btn-ghost btn-sm"
+                            style={{ padding: '0.2rem 0.4rem', fontSize: '0.75rem', color: 'var(--primary)' }}
+                          >
+                            <Eye size={12} /> {showExtractedPreview ? 'Hide extracted preview' : 'View extracted reference'}
+                          </button>
+
+                          {showExtractedPreview && (
+                            <div
+                              style={{
+                                marginTop: '0.4rem',
+                                padding: '0.6rem',
+                                background: 'var(--bg-app)',
+                                borderRadius: 'var(--radius-sm)',
+                                fontSize: '0.775rem',
+                                color: 'var(--text-muted)',
+                                maxHeight: '110px',
+                                overflowY: 'auto',
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-word',
+                                border: '1px solid var(--border-subtle)'
+                              }}
+                            >
+                              {extractedText.slice(0, 800)}...
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Option B: Paste Reference Text */}
+              {referenceMode === 'text' && (
+                <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                  <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Paste Reference Notes / Syllabus *</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-faint)' }}>
+                      {pastedText.trim().split(/\s+/).filter(Boolean).length} words
+                    </span>
+                  </label>
+                  <textarea
+                    className="form-control"
+                    rows={4}
+                    placeholder="Paste textbook chapter, lecture transcript, syllabus outline, or study notes here..."
+                    value={pastedText}
+                    onChange={(e) => setPastedText(e.target.value)}
+                    required
+                  />
+                </div>
+              )}
+
+              {/* Quiz Parameters */}
               <div className="form-group" style={{ marginBottom: '1rem' }}>
-                <label className="form-label">Subject Topic *</label>
+                <label className="form-label">Subject / Assessment Title *</label>
                 <input
                   type="text"
                   className="form-control"
-                  placeholder="e.g. React Hooks, Organic Chemistry"
+                  placeholder="e.g. Database Normalization & Indexing"
                   value={mcqTopic}
                   onChange={(e) => setMcqTopic(e.target.value)}
                   required
                 />
               </div>
 
-              <div className="form-group" style={{ marginBottom: '1rem' }}>
-                <label className="form-label">Difficulty Level</label>
-                <select
-                  className="form-control"
-                  value={mcqDifficulty}
-                  onChange={(e) => setMcqDifficulty(e.target.value)}
-                >
-                  <option value="Beginner">Beginner (Foundational)</option>
-                  <option value="Intermediate">Intermediate (Core Concepts)</option>
-                  <option value="Advanced">Advanced (Critical Thinking)</option>
-                </select>
-              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Target Cohort</label>
+                  {batches.length > 0 ? (
+                    <select
+                      className="form-control"
+                      value={mcqBatch}
+                      onChange={(e) => setMcqBatch(e.target.value)}
+                    >
+                      <option value="All Batches">All Batches</option>
+                      {batches.map(b => (
+                        <option key={b.id} value={b.name}>{b.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. CS 101, BCA sem3"
+                      value={mcqBatch}
+                      onChange={(e) => setMcqBatch(e.target.value)}
+                    />
+                  )}
+                </div>
 
-              <div className="form-group" style={{ marginBottom: '1rem' }}>
-                <label className="form-label">Cognitive Learning Layer</label>
-                <select
-                  className="form-control"
-                  value={mcqCognitiveLayer}
-                  onChange={(e) => setMcqCognitiveLayer(e.target.value)}
-                >
-                  <option value="Multi-Layer Balanced">Multi-Layer Balanced (All 4 Layers)</option>
-                  <option value="Concept Foundation & Syntax">Layer 1: Concept Foundation & Syntax</option>
-                  <option value="Execution Dynamics & Flow">Layer 2: Execution Dynamics & Flow</option>
-                  <option value="Diagnostic Debugging & Tracing">Layer 3: Diagnostic Debugging & Tracing</option>
-                  <option value="Edge Cases & Trap Detection">Layer 4: Edge Cases & Trap Detection</option>
-                </select>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.25rem' }}>
                 <div className="form-group">
                   <label className="form-label">Question Count</label>
                   <select
@@ -370,17 +601,39 @@ export const AiStudioView = ({ user }) => {
                     <option value={4}>4 MCQs</option>
                     <option value={5}>5 MCQs</option>
                     <option value={8}>8 MCQs</option>
+                    <option value={10}>10 MCQs</option>
+                    <option value={15}>15 MCQs</option>
                   </select>
                 </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.25rem' }}>
                 <div className="form-group">
-                  <label className="form-label">Cohort Target</label>
-                  <input
-                    type="text"
+                  <label className="form-label">Difficulty Level</label>
+                  <select
                     className="form-control"
-                    placeholder="e.g. CS 101"
-                    value={mcqBatch}
-                    onChange={(e) => setMcqBatch(e.target.value)}
-                  />
+                    value={mcqDifficulty}
+                    onChange={(e) => setMcqDifficulty(e.target.value)}
+                  >
+                    <option value="Beginner">Beginner (Foundational)</option>
+                    <option value="Intermediate">Intermediate (Core Concepts)</option>
+                    <option value="Advanced">Advanced (Critical Thinking)</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Cognitive Layer</label>
+                  <select
+                    className="form-control"
+                    value={mcqCognitiveLayer}
+                    onChange={(e) => setMcqCognitiveLayer(e.target.value)}
+                  >
+                    <option value="Multi-Layer Balanced">Multi-Layer Balanced</option>
+                    <option value="Concept Foundation & Syntax">Layer 1: Concept & Syntax</option>
+                    <option value="Execution Dynamics & Flow">Layer 2: Execution Flow</option>
+                    <option value="Diagnostic Debugging & Tracing">Layer 3: Debugging</option>
+                    <option value="Edge Cases & Trap Detection">Layer 4: Edge Cases</option>
+                  </select>
                 </div>
               </div>
 
@@ -388,15 +641,24 @@ export const AiStudioView = ({ user }) => {
                 type="submit"
                 className="btn btn-primary"
                 disabled={mcqLoading}
-                style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  padding: '0.75rem'
+                }}
               >
                 {mcqLoading ? (
                   <>
-                    <RefreshCw size={16} className="spin" /> Generating MCQs...
+                    <RefreshCw size={17} className="spin" />
+                    <span>Synthesizing from Reference...</span>
                   </>
                 ) : (
                   <>
-                    <Sparkles size={16} /> Synthesize Questions
+                    <Sparkles size={17} />
+                    <span>Generate Assessment from Reference</span>
                   </>
                 )}
               </button>
@@ -406,7 +668,7 @@ export const AiStudioView = ({ user }) => {
           {/* Results Display */}
           <div>
             {!generatedMcqs ? (
-              <div className="card" style={{ textAlign: 'center', padding: '3.5rem 1.5rem' }}>
+              <div className="card" style={{ textAlign: 'center', padding: '4rem 1.5rem' }}>
                 <div
                   style={{
                     width: '64px',
@@ -421,39 +683,90 @@ export const AiStudioView = ({ user }) => {
                 >
                   <HelpCircle size={32} color="var(--primary)" />
                 </div>
-                <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '0.4rem' }}>
-                  No MCQs Generated Yet
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '0.4rem' }}>
+                  No Assessment Generated Yet
                 </h3>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', maxWidth: '380px', margin: '0 auto' }}>
-                  Select your subject parameters on the left and click "Synthesize Questions" to produce MCQs with answer keys.
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.925rem', maxWidth: '420px', margin: '0 auto 1.5rem' }}>
+                  Upload a PDF document or paste study notes on the left. The AI engine will read the reference material and formulate balanced questions with answer keys.
                 </p>
+                <div style={{ display: 'inline-flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                  <span className="badge badge-secondary">PDF Reference Support</span>
+                  <span className="badge badge-secondary">Multi-Layer Cognitive Scoring</span>
+                  <span className="badge badge-secondary">Live Server Compatible</span>
+                </div>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>
-                    Generated Assessment ({generatedMcqs.length} Questions)
-                  </h3>
-                  <button
-                    onClick={() => handleCopy(generatedMcqs, 'all-mcqs')}
-                    className="btn btn-secondary btn-sm"
-                  >
-                    {copiedId === 'all-mcqs' ? <Check size={14} color="var(--success)" /> : <Copy size={14} />}
-                    {copiedId === 'all-mcqs' ? 'Copied JSON' : 'Export JSON'}
-                  </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                {/* Result Action Bar */}
+                <div
+                  className="card"
+                  style={{
+                    padding: '1.15rem 1.25rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '1rem',
+                    background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.05) 0%, rgba(2, 132, 199, 0.05) 100%)',
+                    border: '1px solid var(--border-medium)'
+                  }}
+                >
+                  <div>
+                    <h3 style={{ fontSize: '1.15rem', fontWeight: 700, margin: '0 0 0.25rem 0' }}>
+                      {mcqTopic} ({generatedMcqs.length} Questions)
+                    </h3>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                      <span className="badge badge-primary" style={{ fontSize: '0.72rem' }}>
+                        {uploadedFile ? `📄 ${uploadedFile.name}` : (pastedText ? '📝 Pasted Reference' : 'Curriculum Synthesis')}
+                      </span>
+                      <span>•</span>
+                      <span>Difficulty: {mcqDifficulty}</span>
+                      <span>•</span>
+                      <span>Cohort: {mcqBatch || 'All Batches'}</span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={handlePublishAsQuiz}
+                      disabled={publishingQuiz}
+                      className="btn btn-primary btn-sm"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                    >
+                      {publishingQuiz ? (
+                        <>
+                          <RefreshCw size={14} className="spin" /> Publishing...
+                        </>
+                      ) : (
+                        <>
+                          <Play size={14} /> Publish as Live Quiz in Quiz Studio
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      onClick={() => handleCopy(generatedMcqs, 'all-mcqs')}
+                      className="btn btn-secondary btn-sm"
+                      title="Export assessment JSON format"
+                    >
+                      {copiedId === 'all-mcqs' ? <Check size={14} color="var(--success)" /> : <Copy size={14} />}
+                      {copiedId === 'all-mcqs' ? 'Copied' : 'Export JSON'}
+                    </button>
+                  </div>
                 </div>
 
+                {/* Generated Question Cards */}
                 {generatedMcqs.map((q, idx) => (
-                  <div key={idx} className="card" style={{ padding: '1.25rem' }}>
+                  <div key={idx} className="card" style={{ padding: '1.35rem' }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '0.85rem' }}>
                       <span
                         style={{
-                          width: '24px',
-                          height: '24px',
-                          borderRadius: '6px',
-                          background: 'var(--primary)',
+                          width: '26px',
+                          height: '26px',
+                          borderRadius: '8px',
+                          background: 'var(--accent-gradient)',
                           color: '#fff',
-                          fontSize: '0.75rem',
+                          fontSize: '0.8rem',
                           fontWeight: 700,
                           display: 'flex',
                           alignItems: 'center',
@@ -465,49 +778,59 @@ export const AiStudioView = ({ user }) => {
                       </span>
                       <div style={{ flex: 1 }}>
                         <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.35rem', flexWrap: 'wrap' }}>
-                          <span className="badge badge-primary">{q.cognitive_layer || 'Multi-Layer'}</span>
+                          <span className="badge badge-primary">{q.cognitive_layer || 'Multi-Layer Balanced'}</span>
                           {q.topic_tag && <span className="badge badge-secondary">{q.topic_tag}</span>}
+                          <span className="badge badge-neutral">{q.marks || 2} Marks</span>
                         </div>
-                        <div style={{ fontWeight: 600, fontSize: '0.975rem', color: 'var(--text-main)' }}>
+                        <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-main)', lineHeight: '1.4' }}>
                           {q.question_text || q.question}
                         </div>
                       </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem', marginBottom: '0.85rem' }}>
+                    {/* Options Grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.6rem', marginBottom: '0.85rem' }}>
                       {(q.options || []).map((opt, oIdx) => {
                         const isCorrect = opt === q.correct_answer || opt === q.answer;
                         return (
                           <div
                             key={oIdx}
                             style={{
-                              padding: '0.65rem 0.85rem',
-                              borderRadius: 'var(--radius-sm)',
+                              padding: '0.75rem 0.95rem',
+                              borderRadius: 'var(--radius-md)',
                               background: isCorrect ? 'var(--success-light)' : 'var(--bg-surface)',
-                              border: isCorrect ? '1px solid var(--success)' : '1px solid var(--border-subtle)',
-                              fontSize: '0.85rem',
+                              border: isCorrect ? '1.5px solid var(--success)' : '1px solid var(--border-subtle)',
+                              fontSize: '0.875rem',
                               color: isCorrect ? 'var(--success)' : 'var(--text-main)',
-                              fontWeight: isCorrect ? 600 : 400
+                              fontWeight: isCorrect ? 600 : 400,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '0.5rem'
                             }}
                           >
-                            {opt}
+                            <span>{opt}</span>
+                            {isCorrect && <CheckCircle size={15} color="var(--success)" style={{ flexShrink: 0 }} />}
                           </div>
                         );
                       })}
                     </div>
 
+                    {/* Pedagogical Explanation */}
                     {q.explanation && (
                       <div
                         style={{
-                          padding: '0.65rem 0.85rem',
+                          padding: '0.75rem 0.95rem',
                           background: 'var(--bg-app)',
                           borderRadius: 'var(--radius-sm)',
-                          fontSize: '0.8rem',
+                          fontSize: '0.825rem',
                           color: 'var(--text-muted)',
-                          borderLeft: '3px solid var(--primary)'
+                          borderLeft: '3px solid var(--primary)',
+                          lineHeight: '1.45'
                         }}
                       >
-                        <strong>Explanation:</strong> {q.explanation}
+                        <strong style={{ color: 'var(--text-main)' }}>Explanation & Citation: </strong>
+                        {q.explanation}
                       </div>
                     )}
                   </div>

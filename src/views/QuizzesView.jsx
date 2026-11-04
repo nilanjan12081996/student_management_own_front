@@ -415,16 +415,27 @@ export const QuizzesView = ({ user }) => {
             Refresh
           </button>
           {isAdmin && (
-            <button
-              onClick={() => {
-                resetQuizForm();
-                setIsAddQuizModalOpen(true);
-              }}
-              className="btn btn-primary"
-            >
-              <Plus size={18} />
-              Create Quiz
-            </button>
+            <>
+              <button
+                onClick={() => navigate('/ai-studio')}
+                className="btn btn-secondary"
+                title="Generate quiz questions automatically from uploaded PDF or reference text"
+                style={{ borderColor: 'var(--primary)', color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+              >
+                <Sparkles size={16} />
+                AI Generate from PDF/Text
+              </button>
+              <button
+                onClick={() => {
+                  resetQuizForm();
+                  setIsAddQuizModalOpen(true);
+                }}
+                className="btn btn-primary"
+              >
+                <Plus size={18} />
+                Create Quiz
+              </button>
+            </>
           )}
         </div>
       </div>

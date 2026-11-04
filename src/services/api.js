@@ -3085,49 +3085,116 @@ class ApiService {
       if (!this.forceMock) {
         const res = await this.request('/ai/generate-mcqs', {
           method: 'POST',
-          body: JSON.stringify(payload)
+          body: JSON.stringify({
+            topic: payload.topic,
+            difficulty: payload.difficulty || 'Intermediate',
+            count: Number(payload.count) || 5,
+            batch_name: payload.batch_name || '',
+            cognitive_layer: payload.cognitive_layer || 'Multi-Layer Balanced',
+            reference_text: payload.reference_text || '',
+            file_name: payload.file_name || '',
+            file_base64: payload.file_base64 || '',
+            file_type: payload.file_type || ''
+          })
         });
-        if (res && res.questions) return res;
+        if (res && res.questions && Array.isArray(res.questions) && res.questions.length > 0) {
+          return res;
+        }
       }
     } catch (err) {
-      console.warn('AI live generateMCQs failed, using fallback:', err.message);
+      console.warn('AI live generateMCQs failed, using contextual fallback:', err.message);
     }
 
-    // Built-in intelligent educational fallback questions
+    // Built-in intelligent reference-aware educational fallback
     const topic = payload.topic || 'General Science';
-    const count = payload.count || 4;
-    const questions = [
+    const count = Number(payload.count) || 4;
+    const refText = (payload.reference_text || '').trim();
+
+    // If reference text provided, extract real factual sentences
+    const sentences = refText
+      ? refText.split(/(?<=[.?!])\s+/).map(s => s.trim()).filter(s => s.length > 25 && s.length < 240)
+      : [];
+
+    const cognitiveLayers = [
+      'Concept Foundation & Syntax',
+      'Execution Dynamics & Flow',
+      'Diagnostic Debugging & Tracing',
+      'Edge Cases & Trap Detection'
+    ];
+
+    const questions = [];
+
+    if (sentences.length >= 2) {
+      for (let i = 0; i < Math.min(count, sentences.length); i++) {
+        const s = sentences[i];
+        const layer = cognitiveLayers[i % cognitiveLayers.length];
+        const correct = s.length > 120 ? s.slice(0, 117) + '...' : s;
+        const distractors = [
+          'The document states that automated validation should be entirely bypassed',
+          'The architecture described executes strictly without state persistence or bounds',
+          'This concept is deprecated and prohibited in production environments'
+        ];
+        const options = [correct, ...distractors].sort(() => 0.5 - Math.random());
+
+        questions.push({
+          question_text: `According to the uploaded reference material, which statement is ACCURATE regarding ${topic}?`,
+          options,
+          correct_answer: correct,
+          marks: 2,
+          cognitive_layer: layer,
+          topic_tag: topic,
+          explanation: `Reference excerpt: "${s.slice(0, 160)}..."`
+        });
+      }
+    }
+
+    // Default domain templates if no sentences
+    const defaultTemplates = [
       {
-        question_text: `Which of the following is considered a core principle when mastering ${topic}?`,
-        options: ['Modularity & Separation of Concerns', 'Arbitrary Hardcoding', 'Avoiding Testing', 'Unbounded Global State'],
+        question_text: `Which of the following is considered a core foundational principle when mastering ${topic}?`,
+        options: ['Modularity & Separation of Concerns', 'Arbitrary Hardcoding without schema', 'Avoiding Testing & Verification', 'Unbounded Global State Transitions'],
         correct_answer: 'Modularity & Separation of Concerns',
+        cognitive_layer: 'Concept Foundation & Syntax',
         explanation: `Modularity and isolation of concerns are critical engineering foundations in ${topic}.`
       },
       {
         question_text: `In practical application of ${topic}, what is the recommended approach to state predictability?`,
-        options: ['Immutable data transitions', 'Direct mutating of shared state', 'Silent failures without logging', 'Infinite event loops'],
-        correct_answer: 'Immutable data transitions',
+        options: ['Immutable data transitions with explicit lifecycles', 'Direct mutating of shared state without locks', 'Silent failures without logging', 'Infinite asynchronous microtask loops'],
+        correct_answer: 'Immutable data transitions with explicit lifecycles',
+        cognitive_layer: 'Execution Dynamics & Flow',
         explanation: 'Immutability ensures deterministic and trackable changes across the lifecycle.'
       },
       {
-        question_text: `What primary benefit does automated verification provide when working with ${topic}?`,
+        question_text: `During diagnostic debugging of ${topic}, what primary benefit does automated verification provide?`,
         options: ['Prevents regressions & guarantees contract consistency', 'Slows down deployment pipelines', 'Forces redundant code execution', 'Eliminates need for documentation'],
         correct_answer: 'Prevents regressions & guarantees contract consistency',
+        cognitive_layer: 'Diagnostic Debugging & Tracing',
         explanation: 'Automated verification enforces type safety and prevents unexpected regressions.'
       },
       {
-        question_text: `When scaling applications built around ${topic}, which architecture pattern is preferred?`,
-        options: ['Decoupled modular components', 'Monolithic tightly coupled script', 'Single point of failure', 'Bypassing error boundaries'],
-        correct_answer: 'Decoupled modular components',
-        explanation: 'Decoupled components allow independent scaling, testing, and maintainability.'
+        question_text: `When scaling systems built around ${topic}, which edge case trap is most critical to guard against?`,
+        options: ['Null references, zero-state arrays, and network latency timeouts', 'Source code formatting with automated indentation', 'Installing recommended system updates', 'Using UTF-8 character encoding standards'],
+        correct_answer: 'Null references, zero-state arrays, and network latency timeouts',
+        cognitive_layer: 'Edge Cases & Trap Detection',
+        explanation: 'Resilient architectures must guard against boundary extremes like nulls and latency timeouts.'
       }
-    ].slice(0, count);
+    ];
+
+    while (questions.length < count) {
+      const tmpl = defaultTemplates[questions.length % defaultTemplates.length];
+      questions.push({
+        ...tmpl,
+        marks: 2,
+        topic_tag: topic
+      });
+    }
 
     return {
       success: true,
-      questions,
+      questions: questions.slice(0, count),
       count: questions.length,
-      mode: 'fallback'
+      mode: refText ? 'reference_fallback' : 'domain_fallback',
+      source: refText ? 'Reference Material' : 'Curriculum Synthesis'
     };
   }
 
