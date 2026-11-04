@@ -70,3 +70,4 @@ export const removeEncryptedToken = () => {
 export const hasStoredToken = () => {
   return Boolean(getDecryptedToken());
 };
+
