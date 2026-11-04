@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useToast } from '../components/Toast';
+import { extractFileText } from '../utils/fileTextExtractor';
 
 export const AiStudioView = ({ user }) => {
   const navigate = useNavigate();
@@ -124,7 +125,7 @@ export const AiStudioView = ({ user }) => {
   }, []);
 
   // File Upload Handler (PDF, TXT, DOC)
-  const handleFileUpload = (file) => {
+  const handleFileUpload = async (file) => {
     if (!file) return;
     if (file.size > 25 * 1024 * 1024) {
       error('File is too large. Please select a file under 25MB.');
@@ -138,25 +139,28 @@ export const AiStudioView = ({ user }) => {
       setMcqTopic(cleanName);
     }
 
+    // Read base64 for transmission
     const reader = new FileReader();
     reader.onload = () => {
-      const base64Data = reader.result;
-      setFileBase64(base64Data);
-
-      // If text file, preview text directly
-      if (file.type.startsWith('text/') || file.name.endsWith('.txt') || file.name.endsWith('.md')) {
-        try {
-          const textContent = atob(base64Data.split(',')[1] || '');
-          setExtractedText(textContent.slice(0, 5000));
-        } catch {
-          // ignore
-        }
-      } else {
-        setExtractedText(`[Document attached: ${file.name} (${(file.size / 1024).toFixed(1)} KB)] - Ready for AI reference parsing.`);
-      }
-      success(`Uploaded ${file.name} successfully!`);
+      setFileBase64(reader.result);
     };
     reader.readAsDataURL(file);
+
+    // Perform real text extraction in browser
+    try {
+      const parsedText = await extractFileText(file);
+      if (parsedText && parsedText.trim().length > 30) {
+        setExtractedText(parsedText.trim());
+        success(`Extracted study material from ${file.name}!`);
+      } else {
+        // Clear extractedText so no fake placeholder is ever sent
+        setExtractedText('');
+        success(`Attached ${file.name} successfully!`);
+      }
+    } catch (_) {
+      setExtractedText('');
+      success(`Attached ${file.name}`);
+    }
   };
 
   const handleClearFile = () => {
@@ -229,6 +233,15 @@ export const AiStudioView = ({ user }) => {
         refText = pastedText.trim();
       } else if (referenceMode === 'file') {
         refText = extractedText.trim();
+      }
+
+      // Safeguard: Never send placeholder strings as reference text
+      if (
+        refText.startsWith('[Document attached:') ||
+        refText.includes('Ready for AI reference parsing') ||
+        refText.length < 30
+      ) {
+        refText = '';
       }
 
       const res = await api.generateMCQs({
@@ -736,12 +749,21 @@ export const AiStudioView = ({ user }) => {
                     value={mcqCount}
                     onChange={(e) => setMcqCount(Number(e.target.value))}
                   >
-                    <option value={3}>3 MCQs</option>
-                    <option value={4}>4 MCQs</option>
-                    <option value={5}>5 MCQs</option>
-                    <option value={8}>8 MCQs</option>
-                    <option value={10}>10 MCQs</option>
-                    <option value={15}>15 MCQs</option>
+                    <option value={1}>1 Question</option>
+                    <option value={2}>2 Questions</option>
+                    <option value={3}>3 Questions</option>
+                    <option value={4}>4 Questions</option>
+                    <option value={5}>5 Questions</option>
+                    <option value={6}>6 Questions</option>
+                    <option value={7}>7 Questions</option>
+                    <option value={8}>8 Questions</option>
+                    <option value={9}>9 Questions</option>
+                    <option value={10}>10 Questions</option>
+                    <option value={12}>12 Questions</option>
+                    <option value={15}>15 Questions</option>
+                    <option value={20}>20 Questions</option>
+                    <option value={25}>25 Questions</option>
+                    <option value={30}>30 Questions</option>
                   </select>
                 </div>
               </div>
