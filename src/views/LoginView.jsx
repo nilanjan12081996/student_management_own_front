@@ -68,8 +68,9 @@ export const LoginView = ({ onLogin }) => {
 
       if (res && (res.user || res.id)) {
         const loggedUser = res.user || res;
+        const token = res.token || `auth_token_${loggedUser.id}_${loggedUser.role || 'user'}_${Date.now()}`;
         if (onLogin) {
-          onLogin(loggedUser);
+          onLogin(loggedUser, token);
         }
       } else {
         setErrorMessage('Authentication failed. Please verify credentials.');

@@ -31,8 +31,8 @@ function App() {
 
   const toggleMobile = () => setIsMobileOpen((prev) => !prev);
 
-  const handleLogin = (user) => {
-    dispatch(setAuth(user));
+  const handleLogin = (user, token) => {
+    dispatch(setAuth({ user, token }));
   };
 
   const handleLogout = useCallback(() => {

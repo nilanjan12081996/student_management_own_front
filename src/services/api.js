@@ -9,6 +9,7 @@ import {
 } from "./mockData";
 
 import axios from 'axios';
+import { getDecryptedToken, setEncryptedToken, removeEncryptedToken } from '../utils/tokenSecurity';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
@@ -18,9 +19,10 @@ export const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token");
+    const token = getDecryptedToken();
     if (token) {
       config.headers["Authorization"] = `Bearer ${token}`;
+      config.headers["authorization"] = `Bearer ${token}`;
     }
 
     try {
@@ -55,7 +57,7 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response && error.response.status === 401) {
       // Remove token if 401 Unauthorized
-      localStorage.removeItem("token");
+      removeEncryptedToken();
       window.dispatchEvent(new Event('auth:unauthorized'));
     }
     return Promise.reject(error);
@@ -1265,7 +1267,7 @@ class ApiService {
 
       if (!this.forceMock) {
 
-        return await this.request(
+        const res = await this.request(
           "/users/login",
           {
             method: "POST",
@@ -1276,6 +1278,12 @@ class ApiService {
               )
           }
         );
+
+        if (res && res.token) {
+          setEncryptedToken(res.token);
+        }
+
+        return res;
       }
 
     } catch (err) {
@@ -1394,10 +1402,15 @@ class ApiService {
     );
 
 
+    const mockToken = `mock_jwt_${user.id}_${user.role || 'student'}_${Date.now()}`;
+    setEncryptedToken(mockToken);
+
     return {
 
       message:
         "Login successful",
+
+      token: mockToken,
 
       user
     };
