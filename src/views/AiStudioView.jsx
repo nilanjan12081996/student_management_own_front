@@ -16,12 +16,20 @@ import {
   Layers,
   ArrowRight,
   Compass,
-  AlertTriangle
+  AlertTriangle,
+  Upload,
+  FileText,
+  X,
+  Eye,
+  Play
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useToast } from '../components/Toast';
 
 export const AiStudioView = ({ user }) => {
+  const navigate = useNavigate();
+  const fileInputRef = useRef(null);
+
   const role = user?.role?.toLowerCase();
   if (role === 'student') {
     return (
@@ -33,18 +41,32 @@ export const AiStudioView = ({ user }) => {
       </div>
     );
   }
+
   const [activeSubTab, setActiveSubTab] = useState('mcq'); // 'mcq' | 'notes' | 'mentor'
   const [aiStatus, setAiStatus] = useState(null);
   const [statusLoading, setStatusLoading] = useState(true);
 
+  // Cohort / Batch list
+  const [batches, setBatches] = useState([]);
+
   // MCQ Generator State
-  const [mcqTopic, setMcqTopic] = useState('JavaScript Asynchronous Programming & Promises');
+  const [mcqTopic, setMcqTopic] = useState('Database Management Systems');
   const [mcqDifficulty, setMcqDifficulty] = useState('Intermediate');
   const [mcqCognitiveLayer, setMcqCognitiveLayer] = useState('Multi-Layer Balanced');
   const [mcqCount, setMcqCount] = useState(4);
-  const [mcqBatch, setMcqBatch] = useState('CS 101');
+  const [mcqBatch, setMcqBatch] = useState('All Batches');
   const [mcqLoading, setMcqLoading] = useState(false);
   const [generatedMcqs, setGeneratedMcqs] = useState(null);
+  const [publishingQuiz, setPublishingQuiz] = useState(false);
+
+  // File and Reference Material State
+  const [referenceMode, setReferenceMode] = useState('file'); // 'file' | 'text' | 'topic'
+  const [uploadedFile, setUploadedFile] = useState(null);
+  const [fileBase64, setFileBase64] = useState('');
+  const [extractedText, setExtractedText] = useState('');
+  const [pastedText, setPastedText] = useState('');
+  const [showExtractedPreview, setShowExtractedPreview] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Notes Generator State
   const [notesTopic, setNotesTopic] = useState('Relational Database Normalization (1NF to 3NF)');
@@ -63,6 +85,22 @@ export const AiStudioView = ({ user }) => {
 
   const [copiedId, setCopiedId] = useState(null);
   const { success, error } = useToast();
+
+  // Load Cohorts / Batches
+  useEffect(() => {
+    const fetchBatches = async () => {
+      try {
+        const orgId = user?.organization_id || 1;
+        const bList = await api.getBatchesByOrganization(orgId);
+        if (Array.isArray(bList) && bList.length > 0) {
+          setBatches(bList);
+        }
+      } catch (err) {
+        console.warn('Could not fetch batches:', err);
+      }
+    };
+    fetchBatches();
+  }, [user?.organization_id]);
 
   // Sync mentor student name when user prop changes (e.g. after login)
   useEffect(() => {
@@ -85,6 +123,96 @@ export const AiStudioView = ({ user }) => {
     fetchAiHealth();
   }, []);
 
+  // File Upload Handler (PDF, TXT, DOC)
+  const handleFileUpload = (file) => {
+    if (!file) return;
+    if (file.size > 25 * 1024 * 1024) {
+      error('File is too large. Please select a file under 25MB.');
+      return;
+    }
+    setUploadedFile(file);
+
+    // Auto-fill topic from file name if topic is default
+    const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+    if (!mcqTopic || mcqTopic === 'Database Management Systems' || mcqTopic === 'JavaScript Asynchronous Programming & Promises') {
+      setMcqTopic(cleanName);
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64Data = reader.result;
+      setFileBase64(base64Data);
+
+      // If text file, preview text directly
+      if (file.type.startsWith('text/') || file.name.endsWith('.txt') || file.name.endsWith('.md')) {
+        try {
+          const textContent = atob(base64Data.split(',')[1] || '');
+          setExtractedText(textContent.slice(0, 5000));
+        } catch {
+          // ignore
+        }
+      } else {
+        setExtractedText(`[Document attached: ${file.name} (${(file.size / 1024).toFixed(1)} KB)] - Ready for AI reference parsing.`);
+      }
+      success(`Uploaded ${file.name} successfully!`);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleClearFile = () => {
+    setUploadedFile(null);
+    setFileBase64('');
+    setExtractedText('');
+    setShowExtractedPreview(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Publish as Live Quiz in Quiz Studio
+  const handlePublishAsQuiz = async () => {
+    if (!generatedMcqs || generatedMcqs.length === 0) {
+      error('No generated questions to publish');
+      return;
+    }
+
+    setPublishingQuiz(true);
+    try {
+      const currentMonth = new Date().toLocaleString('en-US', { month: 'long' });
+      const totalMarks = generatedMcqs.reduce((acc, q) => acc + (Number(q.marks) || 2), 0);
+
+      const formattedQuestions = generatedMcqs.map((q, idx) => ({
+        id: Date.now() + idx,
+        question_text: q.question_text || q.question || '',
+        option_a: q.options?.[0] || 'Option A',
+        option_b: q.options?.[1] || 'Option B',
+        option_c: q.options?.[2] || 'Option C',
+        option_d: q.options?.[3] || 'Option D',
+        options: q.options || [],
+        correct_answer: q.correct_answer || q.answer || q.options?.[0] || '',
+        marks: Number(q.marks) || 2,
+        explanation: q.explanation || ''
+      }));
+
+      await api.createQuiz({
+        title: mcqTopic.trim(),
+        month: currentMonth,
+        total_marks: totalMarks,
+        batch_name: mcqBatch || 'All Batches',
+        organization_id: user?.organization_id || 1,
+        questions: formattedQuestions
+      });
+
+      success(`Quiz "${mcqTopic}" published to Quiz Studio!`);
+      navigate('/quizzes');
+    } catch (err) {
+      console.error(err);
+      error(err.message || 'Failed to publish quiz');
+    } finally {
+      setPublishingQuiz(false);
+    }
+  };
+
   // Handle MCQ Generation
   const handleGenerateMcqs = async (e) => {
     e.preventDefault();
@@ -95,12 +223,23 @@ export const AiStudioView = ({ user }) => {
 
     setMcqLoading(true);
     try {
+      // Determine reference text
+      let refText = '';
+      if (referenceMode === 'text') {
+        refText = pastedText.trim();
+      } else if (referenceMode === 'file') {
+        refText = extractedText.trim();
+      }
+
       const res = await api.generateMCQs({
         topic: mcqTopic.trim(),
         difficulty: mcqDifficulty,
         count: Number(mcqCount),
         batch_name: mcqBatch,
-        cognitive_layer: mcqCognitiveLayer
+        cognitive_layer: mcqCognitiveLayer,
+        reference_text: refText,
+        file_name: uploadedFile ? uploadedFile.name : null,
+        file_base64: fileBase64 || null
       });
 
       if (res && res.questions) {
