@@ -21,18 +21,21 @@ import {
   BookOpen,
   ArrowRight,
   TrendingUp,
-  RotateCcw
+  RotateCcw,
+  Users
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useToast } from '../components/Toast';
 import { Modal } from '../components/Modal';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { filterAccessibleQuizzes } from '../utils/batchFilter';
 
 export const QuizzesView = ({ user }) => {
   const navigate = useNavigate();
   const isAdmin = user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'superadmin';
 
   const [quizzes, setQuizzes] = useState([]);
+  const [batches, setBatches] = useState([]);
   const [studentProgress, setStudentProgress] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -48,7 +51,9 @@ export const QuizzesView = ({ user }) => {
   const [quizFormData, setQuizFormData] = useState({
     title: '',
     month: 'September',
-    total_marks: 25
+    total_marks: 25,
+    batch_id: 'all',
+    batch_name: 'All Batches'
   });
 
   // Question Management states
@@ -86,12 +91,15 @@ export const QuizzesView = ({ user }) => {
   const fetchQuizzesAndProgress = useCallback(async () => {
     setLoading(true);
     try {
-      const [quizzesData, progressData] = await Promise.all([
-        api.getAllQuizzes(user?.organization_id),
-        api.getStudentProgress(user?.id)
+      const orgId = user?.organization_id || 1;
+      const [quizzesData, progressData, batchesData] = await Promise.all([
+        api.getAllQuizzes(orgId),
+        api.getStudentProgress(user?.id),
+        api.getBatchesByOrganization(orgId)
       ]);
       setQuizzes(quizzesData || []);
       setStudentProgress(progressData);
+      setBatches(batchesData || []);
     } catch (err) {
       console.error(err);
       error('Failed to load quizzes');
@@ -124,7 +132,9 @@ export const QuizzesView = ({ user }) => {
     setQuizFormData({
       title: '',
       month: 'September',
-      total_marks: 25
+      total_marks: 25,
+      batch_id: 'all',
+      batch_name: 'All Batches'
     });
     setSelectedQuiz(null);
   };
@@ -137,8 +147,14 @@ export const QuizzesView = ({ user }) => {
     }
 
     try {
+      const selectedBatch = batches.find((b) => String(b.id) === String(quizFormData.batch_id));
+      const batchName = selectedBatch ? selectedBatch.name : (quizFormData.batch_name || 'All Batches');
+
       await api.createQuiz({
         ...quizFormData,
+        batch_id: quizFormData.batch_id === 'all' ? null : Number(quizFormData.batch_id),
+        batch_name: batchName,
+        class: batchName,
         organization_id: user?.organization_id || 1
       });
       success(`Quiz "${quizFormData.title}" created successfully`);
@@ -153,10 +169,23 @@ export const QuizzesView = ({ user }) => {
 
   const handleEditQuizClick = (quiz) => {
     setSelectedQuiz(quiz);
+    let matchedBatchId = 'all';
+    if (quiz.batch_id) {
+      matchedBatchId = String(quiz.batch_id);
+    } else if (quiz.batch_name && quiz.batch_name !== 'All Batches') {
+      const found = batches.find((b) => b.name?.trim().toLowerCase() === quiz.batch_name?.trim().toLowerCase());
+      if (found) matchedBatchId = String(found.id);
+    } else if (quiz.class && quiz.class !== 'All Classes' && quiz.class !== 'General') {
+      const found = batches.find((b) => b.name?.trim().toLowerCase() === quiz.class?.trim().toLowerCase());
+      if (found) matchedBatchId = String(found.id);
+    }
+
     setQuizFormData({
       title: quiz.title || '',
       month: quiz.month || 'September',
-      total_marks: quiz.total_marks || 25
+      total_marks: quiz.total_marks || 25,
+      batch_id: matchedBatchId,
+      batch_name: quiz.batch_name || 'All Batches'
     });
     setIsEditQuizModalOpen(true);
   };
@@ -166,7 +195,15 @@ export const QuizzesView = ({ user }) => {
     if (!selectedQuiz) return;
 
     try {
-      await api.updateQuiz(selectedQuiz.id, quizFormData);
+      const selectedBatch = batches.find((b) => String(b.id) === String(quizFormData.batch_id));
+      const batchName = selectedBatch ? selectedBatch.name : (quizFormData.batch_name || 'All Batches');
+
+      await api.updateQuiz(selectedQuiz.id, {
+        ...quizFormData,
+        batch_id: quizFormData.batch_id === 'all' ? null : Number(quizFormData.batch_id),
+        batch_name: batchName,
+        class: batchName
+      });
       success('Quiz updated successfully');
       setIsEditQuizModalOpen(false);
       resetQuizForm();
@@ -377,8 +414,10 @@ export const QuizzesView = ({ user }) => {
     );
   };
 
-  // Filter quizzes
-  const filteredQuizzes = quizzes.filter((q) => {
+  // Filter quizzes by student batch permissions first, then search and month
+  const accessibleQuizzes = filterAccessibleQuizzes(quizzes, user, batches);
+
+  const filteredQuizzes = accessibleQuizzes.filter((q) => {
     const matchesSearch = q.title?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesMonth = monthFilter === 'all' || q.month?.toLowerCase() === monthFilter.toLowerCase();
     return matchesSearch && matchesMonth;
@@ -522,6 +561,10 @@ export const QuizzesView = ({ user }) => {
                       <span className="badge badge-primary">
                         <Calendar size={12} />
                         {quiz.month || 'Unassigned'}
+                      </span>
+                      <span className="badge badge-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <Users size={12} />
+                        {quiz.batch_name || quiz.class || 'All Batches'}
                       </span>
                       {isCompleted && (
                         <span
@@ -1201,6 +1244,33 @@ export const QuizzesView = ({ user }) => {
             />
           </div>
 
+          <div className="form-group">
+            <label className="form-label">Target Batch (Access Restricted) *</label>
+            <select
+              className="form-control"
+              value={quizFormData.batch_id}
+              onChange={(e) => {
+                const bId = e.target.value;
+                const found = batches.find((b) => String(b.id) === String(bId));
+                setQuizFormData({
+                  ...quizFormData,
+                  batch_id: bId,
+                  batch_name: found ? found.name : 'All Batches'
+                });
+              }}
+            >
+              <option value="all">All Batches (Accessible to all enrolled students)</option>
+              {batches.map((b) => (
+                <option key={b.id} value={b.id}>
+                  Cohort: {b.name} ({b.subject})
+                </option>
+              ))}
+            </select>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Only students enrolled in this selected batch will have permission to view and take this quiz.
+            </span>
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div className="form-group">
               <label className="form-label">Assign Month</label>
@@ -1255,6 +1325,33 @@ export const QuizzesView = ({ user }) => {
               onChange={(e) => setQuizFormData({ ...quizFormData, title: e.target.value })}
               required
             />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Target Batch (Access Restricted) *</label>
+            <select
+              className="form-control"
+              value={quizFormData.batch_id}
+              onChange={(e) => {
+                const bId = e.target.value;
+                const found = batches.find((b) => String(b.id) === String(bId));
+                setQuizFormData({
+                  ...quizFormData,
+                  batch_id: bId,
+                  batch_name: found ? found.name : 'All Batches'
+                });
+              }}
+            >
+              <option value="all">All Batches (Accessible to all enrolled students)</option>
+              {batches.map((b) => (
+                <option key={b.id} value={b.id}>
+                  Cohort: {b.name} ({b.subject})
+                </option>
+              ))}
+            </select>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Only students enrolled in this selected batch will have permission to view and take this quiz.
+            </span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>

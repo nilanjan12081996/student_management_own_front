@@ -2535,6 +2535,9 @@ class ApiService {
       month: quizData.month || "Unassigned",
       total_marks: Number(quizData.total_marks) || 0,
       organization_id: Number(quizData.organization_id) || 1,
+      batch_id: quizData.batch_id === 'all' || !quizData.batch_id ? null : Number(quizData.batch_id),
+      batch_name: quizData.batch_name || 'All Batches',
+      class: quizData.class || quizData.batch_name || 'All Classes',
       questions: quizData.questions || []
     };
 
@@ -2575,11 +2578,23 @@ class ApiService {
   }
 
   async updateQuiz(id, quizData) {
+    const resolvedBatchId = quizData.batch_id !== undefined
+      ? (quizData.batch_id === 'all' || !quizData.batch_id ? null : Number(quizData.batch_id))
+      : undefined;
+    const resolvedBatchName = quizData.batch_name !== undefined
+      ? (quizData.batch_name || 'All Batches')
+      : undefined;
+    const updatePayload = {
+      ...quizData,
+      ...(resolvedBatchId !== undefined && { batch_id: resolvedBatchId }),
+      ...(resolvedBatchName !== undefined && { batch_name: resolvedBatchName, class: quizData.class || resolvedBatchName })
+    };
+
     if (!this.forceMock) {
       try {
         await this.request(`/quizzes/update/${id}`, {
           method: "PUT",
-          body: JSON.stringify(quizData)
+          body: JSON.stringify(updatePayload)
         });
       } catch (err) {
         console.warn("Backend updateQuiz failed, updating locally:", err.message);
@@ -2588,7 +2603,7 @@ class ApiService {
 
     const currentQuizzes = getStoredData(LS_KEYS.QUIZZES, []);
     const updated = currentQuizzes.map(q =>
-      String(q.id) === String(id) ? { ...q, ...quizData } : q
+      String(q.id) === String(id) ? { ...q, ...updatePayload } : q
     );
     setStoredData(LS_KEYS.QUIZZES, updated);
     return { message: "Quiz updated successfully" };

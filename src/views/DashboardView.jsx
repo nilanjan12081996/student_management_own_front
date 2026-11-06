@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Compass, Sparkles, ArrowRight, TrendingUp } from 'lucide-react';
 import { api } from '../services/api';
 import { useToast } from '../components/Toast';
-import { filterAccessibleNotes } from '../utils/batchFilter';
+import { filterAccessibleNotes, filterAccessibleQuizzes } from '../utils/batchFilter';
 
 export const DashboardView = ({ user }) => {
   const navigate = useNavigate();
@@ -21,10 +21,12 @@ export const DashboardView = ({ user }) => {
           api.getBatchesByOrganization ? api.getBatchesByOrganization(user?.organization_id) : []
         ]);
         const accessibleNotes = filterAccessibleNotes(notes, user, batches);
-        const totalQuestions = quizzes.reduce((sum, q) => sum + (q.questions ? q.questions.length : 0), 0);
+        const accessibleQuizzes = filterAccessibleQuizzes(quizzes, user, batches);
+        const targetQuizzes = isAdmin ? quizzes : accessibleQuizzes;
+        const totalQuestions = targetQuizzes.reduce((sum, q) => sum + (q.questions ? q.questions.length : 0), 0);
         setStats({
           users: users ? users.length : 0,
-          quizzes: quizzes ? quizzes.length : 0,
+          quizzes: targetQuizzes ? targetQuizzes.length : 0,
           notes: accessibleNotes ? accessibleNotes.length : 0,
           questions: totalQuestions
         });

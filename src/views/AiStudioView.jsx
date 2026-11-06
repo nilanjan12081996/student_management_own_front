@@ -198,11 +198,19 @@ export const AiStudioView = ({ user }) => {
         explanation: q.explanation || ''
       }));
 
+      const matchedBatch = batches.find(
+        (b) => b.name?.trim().toLowerCase() === (mcqBatch || '').trim().toLowerCase()
+      );
+      const resolvedBatchId = matchedBatch ? matchedBatch.id : null;
+      const resolvedBatchName = mcqBatch || 'All Batches';
+
       await api.createQuiz({
         title: mcqTopic.trim(),
         month: currentMonth,
         total_marks: totalMarks,
-        batch_name: mcqBatch || 'All Batches',
+        batch_id: resolvedBatchId,
+        batch_name: resolvedBatchName,
+        class: resolvedBatchName,
         organization_id: user?.organization_id || 1,
         questions: formattedQuestions
       });

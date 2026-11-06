@@ -14,7 +14,7 @@ import { AiStudioView } from './views/AiStudioView';
 import { LoginView } from './views/LoginView';
 import { ResetPasswordView } from './views/ResetPasswordView';
 import { api, getDeviceId } from './services/api';
-import { filterAccessibleNotes } from './utils/batchFilter';
+import { filterAccessibleNotes, filterAccessibleQuizzes } from './utils/batchFilter';
 
 import { useSelector, useDispatch } from 'react-redux';
 import { logout, setAuth, verifySession } from './store/slices/authSlice';
@@ -78,9 +78,10 @@ function App() {
             api.getBatchesByOrganization ? api.getBatchesByOrganization(adminUser?.organization_id) : []
           ]);
           const accessibleNotes = filterAccessibleNotes(notes, adminUser, batches);
+          const accessibleQuizzes = filterAccessibleQuizzes(quizzes, adminUser, batches);
           setCounts({
             users: users ? users.length : 0,
-            quizzes: quizzes ? quizzes.length : 0,
+            quizzes: accessibleQuizzes ? accessibleQuizzes.length : 0,
             notes: accessibleNotes ? accessibleNotes.length : 0,
             organizations: organizations ? organizations.length : 0,
             batches: batches ? batches.length : 0
