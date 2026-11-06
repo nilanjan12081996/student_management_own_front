@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   HelpCircle,
   Plus,
@@ -32,6 +32,7 @@ import { filterAccessibleQuizzes } from '../utils/batchFilter';
 
 export const QuizzesView = ({ user }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const isAdmin = user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'superadmin';
 
   const [quizzes, setQuizzes] = useState([]);
@@ -111,6 +112,17 @@ export const QuizzesView = ({ user }) => {
   useEffect(() => {
     fetchQuizzesAndProgress();
   }, [fetchQuizzesAndProgress]);
+
+  // Auto-open quiz question management if returning from AI Studio with a selected quiz
+  useEffect(() => {
+    const targetId = location.state?.openQuizId;
+    if (targetId && quizzes.length > 0) {
+      const found = quizzes.find((q) => String(q.id) === String(targetId));
+      if (found) {
+        fetchQuestionsForQuiz(found);
+      }
+    }
+  }, [location.state?.openQuizId, quizzes]);
 
   // Fetch Questions for a selected Quiz (Admin management view)
   const fetchQuestionsForQuiz = async (quiz) => {
@@ -710,7 +722,7 @@ export const QuizzesView = ({ user }) => {
               </h2>
             </div>
 
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
               {!isAdmin && (
                 <button
                   onClick={() => handleStartQuiz(activeQuizQuestions)}
@@ -721,10 +733,44 @@ export const QuizzesView = ({ user }) => {
                 </button>
               )}
               {isAdmin && (
-                <button onClick={handleOpenAddQuestion} className="btn btn-primary">
-                  <PlusCircle size={16} />
-                  Add Question
-                </button>
+                <>
+                  <button
+                    onClick={handleOpenAddQuestion}
+                    className="btn btn-secondary"
+                    title="Add a question manually by entering text and options"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                  >
+                    <PlusCircle size={15} />
+                    Add by Own
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      navigate(`/ai-studio?quizId=${activeQuizQuestions.id}&quizTitle=${encodeURIComponent(activeQuizQuestions.title)}&batch=${encodeURIComponent(activeQuizQuestions.batch_name || activeQuizQuestions.class || '')}`, {
+                        state: {
+                          targetQuizId: activeQuizQuestions.id,
+                          targetQuizTitle: activeQuizQuestions.title,
+                          targetBatch: activeQuizQuestions.batch_name || activeQuizQuestions.class,
+                          subTab: 'mcq'
+                        }
+                      });
+                    }}
+                    className="btn btn-primary"
+                    title="Generate questions using AI from reference PDF or text and add them directly to this quiz"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                      background: 'var(--accent-gradient)',
+                      border: 'none',
+                      color: '#ffffff',
+                      boxShadow: 'var(--shadow-sm)'
+                    }}
+                  >
+                    <Sparkles size={15} />
+                    Add by AI
+                  </button>
+                </>
               )}
               <button onClick={() => setActiveQuizQuestions(null)} className="btn btn-secondary btn-sm">
                 Close Panel
@@ -735,11 +781,36 @@ export const QuizzesView = ({ user }) => {
           {questionsLoading ? (
             <div style={{ textAlign: 'center', padding: '2rem' }}>Loading quiz questions...</div>
           ) : questions.length === 0 ? (
-            <div className="empty-state" style={{ padding: '2rem' }}>
+            <div className="empty-state" style={{ padding: '2.5rem 1.5rem', textAlign: 'center' }}>
               <div className="empty-title">No questions added yet</div>
-              <div className="empty-text">
-                {isAdmin ? 'Click "Add Question" to create questions for this quiz.' : 'Questions will be published soon.'}
+              <div className="empty-text" style={{ maxWidth: '460px', margin: '0 auto 1.25rem' }}>
+                {isAdmin
+                  ? 'Choose "Add by Own" to formulate questions manually, or use "Add by AI" to synthesize questions from lecture documents or topic outlines.'
+                  : 'Questions will be published soon.'}
               </div>
+              {isAdmin && (
+                <div style={{ display: 'inline-flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <button onClick={handleOpenAddQuestion} className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <PlusCircle size={14} /> Add by Own
+                  </button>
+                  <button
+                    onClick={() => {
+                      navigate(`/ai-studio?quizId=${activeQuizQuestions.id}&quizTitle=${encodeURIComponent(activeQuizQuestions.title)}&batch=${encodeURIComponent(activeQuizQuestions.batch_name || activeQuizQuestions.class || '')}`, {
+                        state: {
+                          targetQuizId: activeQuizQuestions.id,
+                          targetQuizTitle: activeQuizQuestions.title,
+                          targetBatch: activeQuizQuestions.batch_name || activeQuizQuestions.class,
+                          subTab: 'mcq'
+                        }
+                      });
+                    }}
+                    className="btn btn-primary btn-sm"
+                    style={{ background: 'var(--accent-gradient)', border: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                  >
+                    <Sparkles size={14} /> Add by AI
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

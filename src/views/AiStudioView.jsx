@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Sparkles,
   BrainCircuit,
@@ -29,7 +29,14 @@ import { extractFileText } from '../utils/fileTextExtractor';
 
 export const AiStudioView = ({ user }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const fileInputRef = useRef(null);
+
+  const queryParams = new URLSearchParams(location.search);
+  const paramQuizId = location.state?.targetQuizId || queryParams.get('quizId') || 'new';
+  const paramQuizTitle = location.state?.targetQuizTitle || queryParams.get('quizTitle') || '';
+  const paramBatch = location.state?.targetBatch || queryParams.get('batch') || '';
+  const paramSubTab = location.state?.subTab || queryParams.get('tab') || 'mcq';
 
   const role = user?.role?.toLowerCase();
   if (role === 'student') {
@@ -43,19 +50,23 @@ export const AiStudioView = ({ user }) => {
     );
   }
 
-  const [activeSubTab, setActiveSubTab] = useState('mcq'); // 'mcq' | 'notes' | 'mentor'
+  const [activeSubTab, setActiveSubTab] = useState(paramSubTab); // 'mcq' | 'notes' | 'mentor'
   const [aiStatus, setAiStatus] = useState(null);
   const [statusLoading, setStatusLoading] = useState(true);
+
+  // Quizzes list & target selection
+  const [quizzes, setQuizzes] = useState([]);
+  const [selectedQuizId, setSelectedQuizId] = useState(paramQuizId);
 
   // Cohort / Batch list
   const [batches, setBatches] = useState([]);
 
   // MCQ Generator State
-  const [mcqTopic, setMcqTopic] = useState('Database Management Systems');
+  const [mcqTopic, setMcqTopic] = useState(paramQuizTitle || 'Database Management Systems');
   const [mcqDifficulty, setMcqDifficulty] = useState('Intermediate');
   const [mcqCognitiveLayer, setMcqCognitiveLayer] = useState('Multi-Layer Balanced');
   const [mcqCount, setMcqCount] = useState(4);
-  const [mcqBatch, setMcqBatch] = useState('All Batches');
+  const [mcqBatch, setMcqBatch] = useState(paramBatch || 'All Batches');
   const [mcqLoading, setMcqLoading] = useState(false);
   const [generatedMcqs, setGeneratedMcqs] = useState(null);
   const [publishingQuiz, setPublishingQuiz] = useState(false);
@@ -87,21 +98,34 @@ export const AiStudioView = ({ user }) => {
   const [copiedId, setCopiedId] = useState(null);
   const { success, error } = useToast();
 
-  // Load Cohorts / Batches
+  // Load Quizzes and Cohorts / Batches
   useEffect(() => {
-    const fetchBatches = async () => {
+    const fetchQuizzesAndBatches = async () => {
       try {
         const orgId = user?.organization_id || 1;
-        const bList = await api.getBatchesByOrganization(orgId);
-        if (Array.isArray(bList) && bList.length > 0) {
-          setBatches(bList);
-        }
+        const [qList, bList] = await Promise.all([
+          api.getAllQuizzes(orgId),
+          api.getBatchesByOrganization(orgId)
+        ]);
+        if (Array.isArray(qList)) setQuizzes(qList);
+        if (Array.isArray(bList)) setBatches(bList);
       } catch (err) {
-        console.warn('Could not fetch batches:', err);
+        console.warn('Could not fetch data for AI Studio:', err);
       }
     };
-    fetchBatches();
+    fetchQuizzesAndBatches();
   }, [user?.organization_id]);
+
+  // Sync selected quiz details when quizId or quizzes list updates
+  useEffect(() => {
+    if (selectedQuizId && selectedQuizId !== 'new' && quizzes.length > 0) {
+      const found = quizzes.find((q) => String(q.id) === String(selectedQuizId));
+      if (found) {
+        setMcqTopic(found.title);
+        if (found.batch_name) setMcqBatch(found.batch_name);
+      }
+    }
+  }, [selectedQuizId, quizzes]);
 
   // Sync mentor student name when user prop changes (e.g. after login)
   useEffect(() => {
@@ -198,25 +222,42 @@ export const AiStudioView = ({ user }) => {
         explanation: q.explanation || ''
       }));
 
-      const matchedBatch = batches.find(
-        (b) => b.name?.trim().toLowerCase() === (mcqBatch || '').trim().toLowerCase()
-      );
-      const resolvedBatchId = matchedBatch ? matchedBatch.id : null;
-      const resolvedBatchName = mcqBatch || 'All Batches';
+      if (selectedQuizId && selectedQuizId !== 'new') {
+        for (const q of formattedQuestions) {
+          await api.createQuestion({
+            quiz_id: Number(selectedQuizId),
+            question_text: q.question_text,
+            options: q.options,
+            correct_answer: q.correct_answer,
+            marks: q.marks,
+            explanation: q.explanation
+          });
+        }
+        const targetQ = quizzes.find((q) => String(q.id) === String(selectedQuizId));
+        const quizTitle = targetQ?.title || paramQuizTitle || 'Quiz';
+        success(`Added ${formattedQuestions.length} AI questions to "${quizTitle}"!`);
+        navigate('/quizzes', { state: { openQuizId: selectedQuizId } });
+      } else {
+        const matchedBatch = batches.find(
+          (b) => b.name?.trim().toLowerCase() === (mcqBatch || '').trim().toLowerCase()
+        );
+        const resolvedBatchId = matchedBatch ? matchedBatch.id : null;
+        const resolvedBatchName = mcqBatch || 'All Batches';
 
-      await api.createQuiz({
-        title: mcqTopic.trim(),
-        month: currentMonth,
-        total_marks: totalMarks,
-        batch_id: resolvedBatchId,
-        batch_name: resolvedBatchName,
-        class: resolvedBatchName,
-        organization_id: user?.organization_id || 1,
-        questions: formattedQuestions
-      });
+        await api.createQuiz({
+          title: mcqTopic.trim(),
+          month: currentMonth,
+          total_marks: totalMarks,
+          batch_id: resolvedBatchId,
+          batch_name: resolvedBatchName,
+          class: resolvedBatchName,
+          organization_id: user?.organization_id || 1,
+          questions: formattedQuestions
+        });
 
-      success(`Quiz "${mcqTopic}" published to Quiz Studio!`);
-      navigate('/quizzes');
+        success(`Quiz "${mcqTopic}" published to Quiz Studio!`);
+        navigate('/quizzes');
+      }
     } catch (err) {
       console.error(err);
       error(err.message || 'Failed to publish quiz');
@@ -479,6 +520,39 @@ export const AiStudioView = ({ user }) => {
               Generate Quiz from Reference
             </h3>
 
+            {/* Active Target Quiz Banner */}
+            {selectedQuizId && selectedQuizId !== 'new' && (
+              <div
+                style={{
+                  padding: '0.65rem 0.85rem',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'rgba(99, 102, 241, 0.1)',
+                  border: '1px solid var(--primary)',
+                  marginBottom: '1.25rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '0.5rem',
+                  flexWrap: 'wrap'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <Sparkles size={15} color="var(--primary)" />
+                  <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>
+                    Target Quiz: <strong style={{ color: 'var(--primary)' }}>{quizzes.find(q => String(q.id) === String(selectedQuizId))?.title || paramQuizTitle || `Quiz #${selectedQuizId}`}</strong>
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedQuizId('new')}
+                  className="btn btn-ghost btn-sm"
+                  style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem' }}
+                >
+                  Create New Instead
+                </button>
+              </div>
+            )}
+
             {/* Reference Mode Switcher */}
             <div style={{ marginBottom: '1.25rem' }}>
               <label className="form-label" style={{ marginBottom: '0.5rem' }}>Reference Material Source</label>
@@ -712,6 +786,45 @@ export const AiStudioView = ({ user }) => {
                 </div>
               )}
 
+              {/* Target Quiz Assignment */}
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Assign to Quiz (Destination)</span>
+                  {selectedQuizId && selectedQuizId !== 'new' && (
+                    <span className="badge badge-primary" style={{ fontSize: '0.72rem' }}>
+                      Append to Quiz
+                    </span>
+                  )}
+                </label>
+                <select
+                  className="form-control"
+                  value={selectedQuizId}
+                  onChange={(e) => {
+                    const qId = e.target.value;
+                    setSelectedQuizId(qId);
+                    if (qId !== 'new') {
+                      const found = quizzes.find((q) => String(q.id) === String(qId));
+                      if (found) {
+                        setMcqTopic(found.title);
+                        if (found.batch_name) setMcqBatch(found.batch_name);
+                      }
+                    }
+                  }}
+                >
+                  <option value="new">+ Create as New Quiz</option>
+                  {quizzes.map((q) => (
+                    <option key={q.id} value={q.id}>
+                      Add to: {q.title} ({q.questions?.length || 0} Questions • {q.batch_name || 'All Batches'})
+                    </option>
+                  ))}
+                </select>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  {selectedQuizId && selectedQuizId !== 'new'
+                    ? `AI questions generated will be added directly into "${quizzes.find((q) => String(q.id) === String(selectedQuizId))?.title || paramQuizTitle || 'Selected Quiz'}".`
+                    : 'A new quiz will be published into Quiz Studio.'}
+                </span>
+              </div>
+
               {/* Quiz Parameters */}
               <div className="form-group" style={{ marginBottom: '1rem' }}>
                 <label className="form-label">Subject / Assessment Title *</label>
@@ -892,6 +1005,14 @@ export const AiStudioView = ({ user }) => {
                       <span>Difficulty: {mcqDifficulty}</span>
                       <span>•</span>
                       <span>Cohort: {mcqBatch || 'All Batches'}</span>
+                      {selectedQuizId && selectedQuizId !== 'new' && (
+                        <>
+                          <span>•</span>
+                          <span className="badge badge-warning" style={{ fontSize: '0.72rem' }}>
+                            Target: {quizzes.find((q) => String(q.id) === String(selectedQuizId))?.title || paramQuizTitle || 'Existing Quiz'}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -900,11 +1021,22 @@ export const AiStudioView = ({ user }) => {
                       onClick={handlePublishAsQuiz}
                       disabled={publishingQuiz}
                       className="btn btn-primary btn-sm"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        background: 'var(--accent-gradient)',
+                        border: 'none',
+                        color: '#ffffff'
+                      }}
                     >
                       {publishingQuiz ? (
                         <>
-                          <RefreshCw size={14} className="spin" /> Publishing...
+                          <RefreshCw size={14} className="spin" /> {selectedQuizId && selectedQuizId !== 'new' ? 'Adding to Quiz...' : 'Publishing...'}
+                        </>
+                      ) : selectedQuizId && selectedQuizId !== 'new' ? (
+                        <>
+                          <Sparkles size={14} /> Add {generatedMcqs.length} Questions to "{quizzes.find((q) => String(q.id) === String(selectedQuizId))?.title || paramQuizTitle || 'Quiz'}"
                         </>
                       ) : (
                         <>
