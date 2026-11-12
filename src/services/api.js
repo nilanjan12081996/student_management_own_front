@@ -2636,10 +2636,20 @@ class ApiService {
         const res = await this.request(`/questions/quiz/${quizId}`);
         const qList = res?.questions || (Array.isArray(res) ? res : null);
         if (Array.isArray(qList)) {
-          return qList.map(q => ({
-            ...q,
-            options: typeof q.options === 'string' ? JSON.parse(q.options) : (q.options || [])
-          }));
+          return qList.map(q => {
+            let parsedOptions = q.options || [];
+            if (typeof q.options === 'string') {
+              try {
+                parsedOptions = JSON.parse(q.options);
+              } catch {
+                parsedOptions = [];
+              }
+            }
+            return {
+              ...q,
+              options: parsedOptions
+            };
+          });
         }
       } catch (err) {
         console.warn("Live getQuestionsByQuizId failed, checking cached quiz:", err.message);
@@ -2662,6 +2672,7 @@ class ApiService {
         createdQuestion = res?.question || res?.data || res;
       } catch (err) {
         console.error("Backend createQuestion failed:", err);
+        throw err;
       }
     }
 

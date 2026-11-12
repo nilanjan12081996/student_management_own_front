@@ -62,9 +62,12 @@ export async function extractFileText(file) {
         const streamRegex = /stream[\r\n]+([\s\S]*?)[\r\n]+endstream/g;
         let streamMatch;
         let count = 0;
-        while ((streamMatch = streamRegex.exec(binaryStr)) !== null && count < 25) {
+        while ((streamMatch = streamRegex.exec(binaryStr)) !== null && count < 350 && extracted.length < 45000) {
           count++;
           const streamRaw = streamMatch[1];
+          // Skip huge embedded image/font binary streams to keep extraction fast
+          if (!streamRaw || streamRaw.length > 150000) continue;
+
           const streamBytes = new Uint8Array(streamRaw.length);
           for (let j = 0; j < streamRaw.length; j++) {
             streamBytes[j] = streamRaw.charCodeAt(j);
@@ -73,8 +76,8 @@ export async function extractFileText(file) {
           try {
             const ds = new DecompressionStream('deflate');
             const writer = ds.writable.getWriter();
-            writer.write(streamBytes);
-            writer.close();
+            writer.write(streamBytes).catch(() => {});
+            writer.close().catch(() => {});
 
             const reader = ds.readable.getReader();
             const chunks = [];
@@ -113,11 +116,13 @@ export async function extractFileText(file) {
         }
       }
 
-      // Clean escape sequences and extra whitespace
+      // Clean escape sequences, non-ASCII PDF binary artifacts, and extra whitespace
       extracted = extracted
-        .replace(/\\([()])/g, '$1')
-        .replace(/\\[rn]/g, ' ')
-        .replace(/\s+/g, ' ')
+        .replace(/\\([()\\])/g, '$1')
+        .replace(/\\[rnt]/g, ' ')
+        .replace(/[^\x20-\x7E\r\n]/g, ' ')
+        .replace(/[ \t]+/g, ' ')
+        .replace(/\n{3,}/g, '\n\n')
         .trim();
 
       if (extracted.length > 25) {

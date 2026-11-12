@@ -163,12 +163,16 @@ export const AiStudioView = ({ user }) => {
       setMcqTopic(cleanName);
     }
 
-    // Read base64 for transmission
-    const reader = new FileReader();
-    reader.onload = () => {
-      setFileBase64(reader.result);
-    };
-    reader.readAsDataURL(file);
+    // Read base64 only when small enough for serverless body limits (<= 3 MB)
+    if (file.size <= 3 * 1024 * 1024) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setFileBase64(reader.result);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setFileBase64('');
+    }
 
     // Perform real text extraction in browser
     try {
@@ -179,7 +183,11 @@ export const AiStudioView = ({ user }) => {
       } else {
         // Clear extractedText so no fake placeholder is ever sent
         setExtractedText('');
-        success(`Attached ${file.name} successfully!`);
+        if (file.size > 3 * 1024 * 1024) {
+          error(`${file.name} appears to be a large scanned/image PDF. Please paste key notes into "Paste Text" if needed, or generate directly from your Topic.`);
+        } else {
+          success(`Attached ${file.name} successfully!`);
+        }
       }
     } catch (_) {
       setExtractedText('');
@@ -293,15 +301,16 @@ export const AiStudioView = ({ user }) => {
         refText = '';
       }
 
+      const shouldSendBase64 = Boolean(fileBase64) && (!refText || (uploadedFile && uploadedFile.size <= 3 * 1024 * 1024 && refText.length < 100));
       const res = await api.generateMCQs({
         topic: mcqTopic.trim(),
         difficulty: mcqDifficulty,
         count: Number(mcqCount),
         batch_name: mcqBatch,
         cognitive_layer: mcqCognitiveLayer,
-        reference_text: refText,
+        reference_text: refText ? refText.slice(0, 30000) : '',
         file_name: uploadedFile ? uploadedFile.name : null,
-        file_base64: fileBase64 || null
+        file_base64: shouldSendBase64 ? fileBase64 : null
       });
 
       if (res && res.questions) {
