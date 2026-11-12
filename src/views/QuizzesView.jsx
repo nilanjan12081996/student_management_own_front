@@ -66,6 +66,7 @@ export const QuizzesView = ({ user }) => {
   const [isAddQuestionModalOpen, setIsAddQuestionModalOpen] = useState(false);
   const [isEditQuestionModalOpen, setIsEditQuestionModalOpen] = useState(false);
   const [isDeleteQuestionModalOpen, setIsDeleteQuestionModalOpen] = useState(false);
+  const [isDeleteAllQuestionsModalOpen, setIsDeleteAllQuestionsModalOpen] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState(null);
 
   // Question Form Data
@@ -344,6 +345,21 @@ export const QuizzesView = ({ user }) => {
     } catch (err) {
       console.error(err);
       error(err.message || 'Failed to delete question');
+    }
+  };
+
+  const handleConfirmDeleteAllQuestions = async () => {
+    if (!activeQuizQuestions?.id) return;
+    try {
+      await api.deleteQuestionsByQuizId(activeQuizQuestions.id);
+      success(`All questions deleted from "${activeQuizQuestions.title}"`);
+      setIsDeleteAllQuestionsModalOpen(false);
+      setQuestions([]);
+      fetchQuestionsForQuiz(activeQuizQuestions);
+      fetchQuizzesAndProgress();
+    } catch (err) {
+      console.error(err);
+      error(err.message || 'Failed to delete all questions');
     }
   };
 
@@ -770,6 +786,24 @@ export const QuizzesView = ({ user }) => {
                     <Sparkles size={15} />
                     Add by AI
                   </button>
+
+                  {questions.length > 0 && (
+                    <button
+                      onClick={() => setIsDeleteAllQuestionsModalOpen(true)}
+                      className="btn btn-secondary"
+                      title="Delete all questions from this quiz"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        color: 'var(--danger)',
+                        borderColor: 'var(--danger)'
+                      }}
+                    >
+                      <Trash2 size={15} />
+                      Delete All
+                    </button>
+                  )}
                 </>
               )}
               <button onClick={() => setActiveQuizQuestions(null)} className="btn btn-secondary btn-sm">
@@ -1650,6 +1684,15 @@ export const QuizzesView = ({ user }) => {
         onConfirm={handleConfirmDeleteQuestion}
         title="Delete Question"
         message="Are you sure you want to delete this question? This action cannot be undone."
+      />
+
+      {/* DELETE ALL QUESTIONS CONFIRM MODAL */}
+      <ConfirmModal
+        isOpen={isDeleteAllQuestionsModalOpen}
+        onClose={() => setIsDeleteAllQuestionsModalOpen(false)}
+        onConfirm={handleConfirmDeleteAllQuestions}
+        title="Delete All Questions"
+        message={`Are you sure you want to delete all ${questions.length} question${questions.length === 1 ? '' : 's'} in "${activeQuizQuestions?.title || 'this quiz'}"? This action cannot be undone.`}
       />
     </div>
   );

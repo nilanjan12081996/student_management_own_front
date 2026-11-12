@@ -2759,6 +2759,34 @@ class ApiService {
     return { message: "Question deleted successfully" };
   }
 
+  async deleteQuestionsByQuizId(quizId) {
+    if (!this.forceMock) {
+      try {
+        await this.request(`/questions/quiz/${quizId}`, {
+          method: "DELETE"
+        });
+      } catch (err) {
+        console.error("Backend deleteQuestionsByQuizId failed:", err);
+        throw err;
+      }
+    }
+
+    const currentQuizzes = getStoredData(LS_KEYS.QUIZZES, []);
+    const updatedQuizzes = currentQuizzes.map(q => {
+      if (String(q.id) === String(quizId)) {
+        return {
+          ...q,
+          questions: [],
+          total_marks: 0
+        };
+      }
+      return q;
+    });
+
+    setStoredData(LS_KEYS.QUIZZES, updatedQuizzes);
+    return { message: "All questions deleted successfully" };
+  }
+
 
   // ======================================================
   // QUIZ SUBMISSIONS & STUDENT PROGRESS
