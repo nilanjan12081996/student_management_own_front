@@ -790,14 +790,12 @@ export const QuizzesView = ({ user }) => {
                   {questions.length > 0 && (
                     <button
                       onClick={() => setIsDeleteAllQuestionsModalOpen(true)}
-                      className="btn btn-secondary"
+                      className="btn btn-danger"
                       title="Delete all questions from this quiz"
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '0.35rem',
-                        color: 'var(--danger)',
-                        borderColor: 'var(--danger)'
+                        gap: '0.35rem'
                       }}
                     >
                       <Trash2 size={15} />
