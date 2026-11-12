@@ -9,7 +9,12 @@ import {
 } from "./mockData";
 
 import axios from 'axios';
-import { getDecryptedToken, setEncryptedToken, removeEncryptedToken } from '../utils/tokenSecurity';
+import {
+  getDecryptedToken,
+  setEncryptedToken,
+  removeEncryptedToken,
+  getDecryptedGeminiKey
+} from '../utils/tokenSecurity';
 import { generateSmartQuestions } from '../utils/curriculumQuestions';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
@@ -3144,6 +3149,13 @@ class ApiService {
     };
   }
 
+  async verifyGeminiKey(geminiApiKey) {
+    return this.request('/ai/verify-gemini', {
+      method: 'POST',
+      body: JSON.stringify({ gemini_api_key: (geminiApiKey || '').trim() })
+    });
+  }
+
   async generateMCQs(payload) {
     const storedUser = JSON.parse(localStorage.getItem('eduadmin_user') || '{}');
     if (storedUser?.role?.toLowerCase() === 'student') {
@@ -3153,8 +3165,9 @@ class ApiService {
     const topic = (payload.topic || 'Database Management Systems').trim();
     const count = Math.max(1, Math.min(30, Number(payload.count) || 4));
     const rawRef = (payload.reference_text || '').trim();
-    const isPlaceholder = rawRef.startsWith('[Document attached:') || rawRef.includes('Ready for AI reference parsing') || rawRef.length < 35;
+    const isPlaceholder = rawRef.startsWith('[Document attached:') || rawRef.includes('Ready for AI reference parsing') || rawRef.length < 3;
     const cleanRef = isPlaceholder ? '' : rawRef;
+    const geminiKey = (payload.gemini_api_key || getDecryptedGeminiKey() || '').trim();
 
     try {
       if (!this.forceMock) {
@@ -3169,7 +3182,8 @@ class ApiService {
             reference_text: cleanRef,
             file_name: payload.file_name || '',
             file_base64: payload.file_base64 || '',
-            file_type: payload.file_type || ''
+            file_type: payload.file_type || '',
+            gemini_api_key: geminiKey
           })
         });
         if (res && res.questions && Array.isArray(res.questions) && res.questions.length > 0) {
@@ -3211,7 +3225,10 @@ class ApiService {
       if (!this.forceMock) {
         const res = await this.request('/ai/generate-notes', {
           method: 'POST',
-          body: JSON.stringify(payload)
+          body: JSON.stringify({
+            ...payload,
+            gemini_api_key: (payload.gemini_api_key || getDecryptedGeminiKey() || '').trim()
+          })
         });
         if (res && res.note) return res;
       }

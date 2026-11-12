@@ -21,11 +21,17 @@ import {
   FileText,
   X,
   Eye,
-  Play
+  Play,
+  KeyRound
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useToast } from '../components/Toast';
 import { extractFileText } from '../utils/fileTextExtractor';
+import {
+  getDecryptedGeminiKey,
+  setEncryptedGeminiKey,
+  removeEncryptedGeminiKey
+} from '../utils/tokenSecurity';
 
 export const AiStudioView = ({ user }) => {
   const navigate = useNavigate();
@@ -69,7 +75,14 @@ export const AiStudioView = ({ user }) => {
   const [mcqBatch, setMcqBatch] = useState(paramBatch || 'All Batches');
   const [mcqLoading, setMcqLoading] = useState(false);
   const [generatedMcqs, setGeneratedMcqs] = useState(null);
+  const [generatedEngine, setGeneratedEngine] = useState('');
   const [publishingQuiz, setPublishingQuiz] = useState(false);
+
+  // Gemini API Connection State
+  const [showGeminiConfig, setShowGeminiConfig] = useState(false);
+  const [geminiKeyInput, setGeminiKeyInput] = useState('');
+  const [hasLocalGeminiKey, setHasLocalGeminiKey] = useState(() => Boolean(getDecryptedGeminiKey()));
+  const [verifyingGemini, setVerifyingGemini] = useState(false);
 
   // File and Reference Material State
   const [referenceMode, setReferenceMode] = useState('file'); // 'file' | 'text' | 'topic'
@@ -296,12 +309,13 @@ export const AiStudioView = ({ user }) => {
       if (
         refText.startsWith('[Document attached:') ||
         refText.includes('Ready for AI reference parsing') ||
-        refText.length < 30
+        refText.length < 3
       ) {
         refText = '';
       }
 
-      const shouldSendBase64 = Boolean(fileBase64) && (!refText || (uploadedFile && uploadedFile.size <= 3 * 1024 * 1024 && refText.length < 100));
+      // Send base64 whenever uploaded file <= 3 MB so Gemini Multimodal reads full PDF/diagrams directly
+      const shouldSendBase64 = Boolean(fileBase64) && (!uploadedFile || uploadedFile.size <= 3 * 1024 * 1024);
       const res = await api.generateMCQs({
         topic: mcqTopic.trim(),
         difficulty: mcqDifficulty,
@@ -315,7 +329,12 @@ export const AiStudioView = ({ user }) => {
 
       if (res && res.questions) {
         setGeneratedMcqs(res.questions);
-        success(`Generated ${res.questions.length} questions successfully!`);
+        setGeneratedEngine(res.engine || res.source || '');
+        if (res.gemini_error) {
+          error(`Gemini fell back to local engine: ${res.gemini_error}`);
+        } else {
+          success(`Generated ${res.questions.length} questions using ${res.engine || 'AI Engine'}!`);
+        }
       } else {
         error('Failed to generate MCQs');
       }
@@ -422,34 +441,132 @@ export const AiStudioView = ({ user }) => {
           </p>
         </div>
 
-        {/* Engine Status Badge */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        {/* Engine Status Badge & Gemini Connect Control */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
           <div
             style={{
               padding: '0.5rem 0.85rem',
               borderRadius: 'var(--radius-md)',
               background: 'var(--bg-card)',
-              border: '1px solid var(--border-subtle)',
+              border: `1px solid ${(aiStatus?.has_gemini || hasLocalGeminiKey) ? 'var(--success)' : 'var(--border-subtle)'}`,
               display: 'flex',
               alignItems: 'center',
               gap: '0.5rem',
               boxShadow: 'var(--shadow-sm)'
             }}
           >
-            <Cpu size={16} color="var(--primary)" />
+            <Cpu size={16} color={(aiStatus?.has_gemini || hasLocalGeminiKey) ? 'var(--success)' : 'var(--primary)'} />
             <div style={{ fontSize: '0.8rem' }}>
-              <span style={{ color: 'var(--text-faint)' }}>Microservice: </span>
-              <strong style={{ color: aiStatus?.status === 'UP' ? 'var(--success)' : 'var(--accent)' }}>
-                {statusLoading ? 'Checking...' : (aiStatus?.mode || 'Intelligent Fallback')}
+              <span style={{ color: 'var(--text-faint)' }}>AI Engine: </span>
+              <strong style={{ color: (aiStatus?.has_gemini || hasLocalGeminiKey) ? 'var(--success)' : 'var(--warning)' }}>
+                {statusLoading
+                  ? 'Checking...'
+                  : (aiStatus?.has_gemini
+                    ? (aiStatus?.mode || 'Google Gemini 2.5 Flash AI')
+                    : hasLocalGeminiKey
+                    ? 'Google Gemini AI (Key Connected)'
+                    : 'Fallback Engine (No Gemini Key)')}
               </strong>
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setShowGeminiConfig((prev) => !prev)}
+            className={`btn btn-sm ${(aiStatus?.has_gemini || hasLocalGeminiKey) ? 'btn-secondary' : 'btn-primary'}`}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+            title="Connect or test your Google Gemini API key"
+          >
+            <KeyRound size={14} />
+            {hasLocalGeminiKey ? 'Gemini Key Saved' : (aiStatus?.has_gemini ? 'Gemini API Key' : 'Connect Gemini Key')}
+          </button>
 
           <button onClick={fetchAiHealth} className="btn-icon btn-ghost" title="Refresh AI Engine Status">
             <RefreshCw size={16} className={statusLoading ? 'spin' : ''} />
           </button>
         </div>
       </div>
+
+      {/* Gemini API Key Connection Drawer */}
+      {showGeminiConfig && (
+        <div
+          className="card"
+          style={{
+            padding: '1rem 1.25rem',
+            marginBottom: '1.25rem',
+            border: '1px solid var(--primary)',
+            background: 'var(--bg-card)'
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.65rem' }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <KeyRound size={15} color="var(--primary)" />
+                Connect Google Gemini AI (gemini-2.5-flash)
+              </div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                {aiStatus?.has_gemini
+                  ? 'A server GEMINI_API_KEY is active. You can optionally override it below.'
+                  : 'Paste a Google AI Studio Gemini API key below (encrypted in browser storage) or set GEMINI_API_KEY in your backend / Vercel environment.'}
+              </div>
+            </div>
+            <button type="button" className="btn-icon btn-ghost" onClick={() => setShowGeminiConfig(false)}>
+              <X size={16} />
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <input
+              type="password"
+              className="form-control"
+              style={{ flex: '1 1 280px' }}
+              placeholder={hasLocalGeminiKey ? '•••••••••••••••••••• (Enter new key to replace)' : 'Paste Gemini API Key (starts with AIza...)'}
+              value={geminiKeyInput}
+              onChange={(e) => setGeminiKeyInput(e.target.value)}
+            />
+            <button
+              type="button"
+              disabled={verifyingGemini || !geminiKeyInput.trim()}
+              className="btn btn-primary btn-sm"
+              onClick={async () => {
+                setVerifyingGemini(true);
+                try {
+                  const res = await api.verifyGeminiKey(geminiKeyInput.trim());
+                  if (res?.valid) {
+                    setEncryptedGeminiKey(geminiKeyInput.trim());
+                    setHasLocalGeminiKey(true);
+                    setGeminiKeyInput('');
+                    setShowGeminiConfig(false);
+                    success(`Connected to Google Gemini (${res.model || 'gemini-2.5-flash'})!`);
+                  } else {
+                    error(res?.error || 'Could not verify Gemini API key.');
+                  }
+                } catch (err) {
+                  error(err.message || 'Gemini key verification failed.');
+                } finally {
+                  setVerifyingGemini(false);
+                }
+              }}
+            >
+              {verifyingGemini ? 'Verifying...' : 'Verify & Connect'}
+            </button>
+            {hasLocalGeminiKey && (
+              <button
+                type="button"
+                className="btn btn-danger btn-sm"
+                onClick={() => {
+                  removeEncryptedGeminiKey();
+                  setHasLocalGeminiKey(false);
+                  setGeminiKeyInput('');
+                  success('Removed saved Gemini API key.');
+                }}
+              >
+                Disconnect Key
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Sub Tabs */}
       <div
@@ -1010,6 +1127,14 @@ export const AiStudioView = ({ user }) => {
                       <span className="badge badge-primary" style={{ fontSize: '0.72rem' }}>
                         {uploadedFile ? `📄 ${uploadedFile.name}` : (pastedText ? '📝 Pasted Reference' : 'Curriculum Synthesis')}
                       </span>
+                      {generatedEngine && (
+                        <>
+                          <span>•</span>
+                          <span className={`badge ${generatedEngine.toLowerCase().includes('gemini') ? 'badge-success' : 'badge-secondary'}`} style={{ fontSize: '0.72rem' }}>
+                            {generatedEngine}
+                          </span>
+                        </>
+                      )}
                       <span>•</span>
                       <span>Difficulty: {mcqDifficulty}</span>
                       <span>•</span>

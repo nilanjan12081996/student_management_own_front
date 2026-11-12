@@ -148,6 +148,279 @@ export const DBMS_QUESTION_BANK = [
     correct_answer: "0 rows (an empty result set)",
     cognitive_layer: "Edge Cases & Trap Detection",
     explanation: "An INNER JOIN only retains rows where the join condition evaluates to TRUE. If zero rows satisfy the predicate, the result set has exactly 0 rows."
+  },
+  {
+    question_text: "In an Entity-Relationship (ER) diagram, what does a double-bordered rectangle represent?",
+    options: ["A Weak Entity set", "A Composite Attribute", "A Multivalued Attribute", "A Derived Attribute"],
+    correct_answer: "A Weak Entity set",
+    cognitive_layer: "Concept Foundation & Syntax",
+    explanation: "In standard Chen ER notation, a weak entity set is depicted with a double rectangle and depends on an identifying strong entity via a double-diamond identifying relationship."
+  },
+  {
+    question_text: "In ER modeling, how is Total Participation of an entity set in a relationship visually represented and interpreted?",
+    options: [
+      "A double line connecting the entity to the relationship, meaning every entity instance must participate in at least one relationship instance",
+      "A dashed oval, meaning the attribute value is dynamically computed at query time",
+      "A single line with an arrow, meaning the entity participates optionally (zero or more times)",
+      "A dotted diamond, meaning the relationship holds no foreign key constraints"
+    ],
+    correct_answer: "A double line connecting the entity to the relationship, meaning every entity instance must participate in at least one relationship instance",
+    cognitive_layer: "Concept Foundation & Syntax",
+    explanation: "Total participation (mandatory participation) is shown with a double line in ER diagrams, indicating a minimum cardinality of 1 for every entity in the set."
+  },
+  {
+    question_text: "When converting an ER diagram into a relational schema, how is a Many-to-Many (M:N) binary relationship between entities E1 and E2 mapped?",
+    options: [
+      "By creating a separate junction/associative relation containing the primary keys of both E1 and E2 (plus any relationship attributes)",
+      "By merging E1 and E2 permanently into a single unnormalized flat relation",
+      "By storing a comma-separated list of E2 keys inside a single column of E1",
+      "By dropping the primary key constraint from E2 and converting it into a weak attribute"
+    ],
+    correct_answer: "By creating a separate junction/associative relation containing the primary keys of both E1 and E2 (plus any relationship attributes)",
+    cognitive_layer: "Execution Dynamics & Flow",
+    explanation: "An M:N relationship cannot be represented by a foreign key in either entity alone without violating 1NF; it maps to a new table whose key combines the primary keys of both entities."
+  },
+  {
+    question_text: "In an ER diagram, what do a double oval and a dashed oval represent respectively?",
+    options: [
+      "A Multivalued attribute and a Derived attribute",
+      "A Primary key attribute and a Foreign key attribute",
+      "A Weak entity set and a Recursive relationship",
+      "A Total participation constraint and a Composite entity"
+    ],
+    correct_answer: "A Multivalued attribute and a Derived attribute",
+    cognitive_layer: "Concept Foundation & Syntax",
+    explanation: "A double oval denotes a multivalued attribute (e.g., multiple phone numbers, mapped to a separate table), while a dashed oval denotes a derived attribute (e.g., Age computed from Date of Birth)."
+  },
+  {
+    question_text: "What is a Recursive (Unary) Relationship in an Entity-Relationship model?",
+    options: [
+      "A relationship in which the same entity set participates more than once in different roles (e.g., Employee supervises Employee)",
+      "A relationship connecting three distinct strong entity sets simultaneously",
+      "A weak entity connected to two independent parent tables without a partial key",
+      "A relationship whose cardinality is fixed at 1:1 with partial participation on both sides"
+    ],
+    correct_answer: "A relationship in which the same entity set participates more than once in different roles (e.g., Employee supervises Employee)",
+    cognitive_layer: "Concept Foundation & Syntax",
+    explanation: "A unary/recursive relationship has degree 1, relating instances of the same entity set to one another using distinct role names (such as Manager and Subordinate)."
+  },
+  {
+    question_text: "In Enhanced ER (EER) modeling, how does Specialization differ from Generalization?",
+    options: [
+      "Specialization is a top-down process of dividing a higher-level entity into distinct subclasses, whereas Generalization is a bottom-up synthesis of common entity sets into a superclass",
+      "Generalization creates multivalued attributes whereas Specialization removes foreign keys",
+      "Specialization applies only to 1NF tables while Generalization applies only to BCNF",
+      "Generalization eliminates primary keys from all participating subclass entities"
+    ],
+    correct_answer: "Specialization is a top-down process of dividing a higher-level entity into distinct subclasses, whereas Generalization is a bottom-up synthesis of common entity sets into a superclass",
+    cognitive_layer: "Concept Foundation & Syntax",
+    explanation: "Both form an ISA hierarchy: Specialization splits a superclass into specialized subclasses (top-down), while Generalization combines shared attributes of entities into a superclass (bottom-up)."
+  },
+  {
+    question_text: "Which SQL subset consists exclusively of Data Definition Language (DDL) commands used to define and modify database schemas?",
+    options: [
+      "CREATE, ALTER, DROP, TRUNCATE",
+      "INSERT, UPDATE, DELETE, MERGE",
+      "GRANT, REVOKE, DENY",
+      "COMMIT, ROLLBACK, SAVEPOINT"
+    ],
+    correct_answer: "CREATE, ALTER, DROP, TRUNCATE",
+    cognitive_layer: "Concept Foundation & Syntax",
+    explanation: "DDL commands (CREATE, ALTER, DROP, TRUNCATE, RENAME) define, modify, or remove database structures and metadata, whereas INSERT/UPDATE/DELETE belong to DML."
+  },
+  {
+    question_text: "What is the critical behavioral difference between the DDL command TRUNCATE TABLE and the DML command DELETE FROM?",
+    options: [
+      "TRUNCATE removes all rows by deallocating data pages without a WHERE filter and typically auto-commits, whereas DELETE removes row-by-row with optional WHERE and can be rolled back",
+      "DELETE permanently drops the table schema from the catalog whereas TRUNCATE preserves rows",
+      "TRUNCATE supports a WHERE clause to delete selective tuples while DELETE always wipes the full table",
+      "DELETE resets AUTO_INCREMENT identity counters automatically while TRUNCATE leaves them unchanged"
+    ],
+    correct_answer: "TRUNCATE removes all rows by deallocating data pages without a WHERE filter and typically auto-commits, whereas DELETE removes row-by-row with optional WHERE and can be rolled back",
+    cognitive_layer: "Diagnostic Debugging & Tracing",
+    explanation: "TRUNCATE is a fast DDL operation that frees table storage pages without logging individual row deletions, whereas DELETE is a logged DML operation supporting WHERE filtering and transaction rollback."
+  },
+  {
+    question_text: "Which SQL command is a DDL statement used to add a new column or constraint to an existing table without losing stored rows?",
+    options: ["ALTER TABLE", "UPDATE TABLE", "MODIFY ROWS", "INSERT COLUMN"],
+    correct_answer: "ALTER TABLE",
+    cognitive_layer: "Concept Foundation & Syntax",
+    explanation: "ALTER TABLE (DDL) modifies table structure (ADD, DROP COLUMN, MODIFY/ALTER COLUMN, ADD CONSTRAINT), whereas UPDATE (DML) modifies row data values."
+  },
+  {
+    question_text: "What happens if an SQL DROP TABLE Students; (DDL) command executes compared to TRUNCATE TABLE Students;?",
+    options: [
+      "DROP TABLE removes both the data and the table schema/definition from the database catalog, whereas TRUNCATE empties rows while keeping the table schema intact",
+      "DROP TABLE empties rows while keeping indexes and schema intact, whereas TRUNCATE deletes the schema",
+      "DROP TABLE can be undone automatically with a standard DML ROLLBACK in all SQL engines",
+      "TRUNCATE removes foreign key tables automatically while DROP fails only when empty"
+    ],
+    correct_answer: "DROP TABLE removes both the data and the table schema/definition from the database catalog, whereas TRUNCATE empties rows while keeping the table schema intact",
+    cognitive_layer: "Execution Dynamics & Flow",
+    explanation: "DROP destroys the entire table object (structure, constraints, indexes, and data); TRUNCATE only clears existing tuples while retaining the table definition for future inserts."
+  },
+  {
+    question_text: "Which category of SQL statements comprises Data Manipulation Language (DML) commands?",
+    options: [
+      "INSERT, UPDATE, DELETE",
+      "CREATE, DROP, ALTER",
+      "COMMIT, ROLLBACK, SAVEPOINT",
+      "GRANT, REVOKE"
+    ],
+    correct_answer: "INSERT, UPDATE, DELETE",
+    cognitive_layer: "Concept Foundation & Syntax",
+    explanation: "DML commands manipulate tuple data inside existing tables: INSERT adds rows, UPDATE modifies column values, and DELETE removes rows."
+  },
+  {
+    question_text: "In SQL DML, what edge-case mistake occurs when executing UPDATE Employees SET salary = 50000; without a WHERE clause?",
+    options: [
+      "Every single row in the Employees table is updated to 50000",
+      "SQL raises a syntax error because WHERE is mandatory in every UPDATE statement",
+      "Only the first row returned by the primary key index is updated",
+      "Zero rows are modified and the database emits an empty-update warning"
+    ],
+    correct_answer: "Every single row in the Employees table is updated to 50000",
+    cognitive_layer: "Edge Cases & Trap Detection",
+    explanation: "In DML UPDATE and DELETE statements, the WHERE clause is optional syntactically; omitting it applies the modification unconditionally to every tuple in the table."
+  },
+  {
+    question_text: "When defining a FOREIGN KEY constraint in SQL DDL, what does the referential action ON DELETE CASCADE enforce during a DML DELETE on the parent table?",
+    options: [
+      "Deleting a parent row automatically deletes all dependent child rows referencing its key",
+      "Deleting a parent row automatically drops the child table from the database schema",
+      "Deleting a child row deletes the referenced parent record automatically",
+      "Deleting a parent row is blocked with an integrity violation even if child rows exist"
+    ],
+    correct_answer: "Deleting a parent row automatically deletes all dependent child rows referencing its key",
+    cognitive_layer: "Execution Dynamics & Flow",
+    explanation: "ON DELETE CASCADE propagates parent row deletions downward to matching foreign key rows in the child table to preserve referential integrity."
+  },
+  {
+    question_text: "In Relational Database theory, how is a Candidate Key precisely distinguished from a Super Key?",
+    options: [
+      "A Candidate Key is a minimal Super Key—no proper subset of its attributes can uniquely identify a tuple",
+      "A Super Key can never contain more than one attribute whereas a Candidate Key is always composite",
+      "A Candidate Key allows NULL values in primary columns whereas a Super Key disallows NULLs",
+      "Every table can have multiple Primary Keys but at most one Candidate Key"
+    ],
+    correct_answer: "A Candidate Key is a minimal Super Key—no proper subset of its attributes can uniquely identify a tuple",
+    cognitive_layer: "Concept Foundation & Syntax",
+    explanation: "While any superset of a candidate key is also a super key, a candidate key contains no redundant attributes (it is irreducible / minimal)."
+  },
+  {
+    question_text: "If a relational table has 3 Candidate Keys and one is chosen as the Primary Key, what are the remaining 2 Candidate Keys called?",
+    options: ["Alternate Keys", "Foreign Keys", "Composite Keys", "Partial Keys"],
+    correct_answer: "Alternate Keys",
+    cognitive_layer: "Concept Foundation & Syntax",
+    explanation: "All minimal unique identifiers of a relation are Candidate Keys; the one designated for primary identification is the Primary Key, and the others are Alternate Keys."
+  },
+  {
+    question_text: "What is the key difference between a PRIMARY KEY constraint and a UNIQUE key constraint in SQL DDL?",
+    options: [
+      "A table can have only one PRIMARY KEY (which strictly disallows NULL), whereas a table can have multiple UNIQUE constraints (which permit NULL values)",
+      "UNIQUE constraints cannot be referenced by a FOREIGN KEY whereas PRIMARY KEYs can",
+      "PRIMARY KEY allows duplicate rows when NULL is inserted while UNIQUE rejects all rows",
+      "UNIQUE automatically disables B+ tree index creation on the column"
+    ],
+    correct_answer: "A table can have only one PRIMARY KEY (which strictly disallows NULL), whereas a table can have multiple UNIQUE constraints (which permit NULL values)",
+    cognitive_layer: "Edge Cases & Trap Detection",
+    explanation: "Entity integrity mandates that no component of a PRIMARY KEY may be NULL, and a relation has at most one Primary Key, whereas multiple UNIQUE keys may exist and allow NULLs."
+  },
+  {
+    question_text: "In relational key terminology, when is an attribute classified as a 'Prime Attribute'?",
+    options: [
+      "When the attribute is a member of at least one Candidate Key of the relation",
+      "Only when the attribute has an integer data type and auto-increment enabled",
+      "When the attribute participates in a transitive functional dependency outside all keys",
+      "Only when the attribute is a Foreign Key referencing an external schema"
+    ],
+    correct_answer: "When the attribute is a member of at least one Candidate Key of the relation",
+    cognitive_layer: "Concept Foundation & Syntax",
+    explanation: "Any attribute that belongs to ANY candidate key (not solely the chosen primary key) is a prime attribute; all remaining attributes are non-prime."
+  },
+  {
+    question_text: "In Functional Dependency theory, what does the notation X -> Y mean formally for any relation instance r(R)?",
+    options: [
+      "Whenever two tuples in r agree on all attribute values of X, they must also agree on all attribute values of Y",
+      "Attribute Y uniquely determines every candidate key in table X",
+      "The number of rows in column X must equal the number of rows in column Y",
+      "Deleting a value in Y cascades automatically to set X to NULL"
+    ],
+    correct_answer: "Whenever two tuples in r agree on all attribute values of X, they must also agree on all attribute values of Y",
+    cognitive_layer: "Concept Foundation & Syntax",
+    explanation: "X -> Y (X functionally determines Y) means for every pair of tuples t1, t2: if t1[X] = t2[X], then necessarily t1[Y] = t2[Y]."
+  },
+  {
+    question_text: "Under what condition is a Functional Dependency X -> Y classified as a 'Trivial Functional Dependency'?",
+    options: [
+      "When Y is a subset of X (Y ⊆ X)",
+      "When X and Y have completely disjoint attribute sets (X ∩ Y = ∅)",
+      "When Y is a composite primary key",
+      "When X contains only nullable varchar columns"
+    ],
+    correct_answer: "When Y is a subset of X (Y ⊆ X)",
+    cognitive_layer: "Concept Foundation & Syntax",
+    explanation: "By Armstrong's Reflexivity axiom, any attribute set X always functionally determines any subset of itself (e.g., {RollNo, Name} -> Name), making it trivially satisfied in every relation."
+  },
+  {
+    question_text: "Which three inference rules constitute Armstrong's Axioms for reasoning about Functional Dependencies?",
+    options: [
+      "Reflexivity, Augmentation, and Transitivity",
+      "Atomicity, Consistency, and Durability",
+      "Selection, Projection, and Cartesian Product",
+      "Decomposition, Union, and Lossless Join"
+    ],
+    correct_answer: "Reflexivity, Augmentation, and Transitivity",
+    cognitive_layer: "Concept Foundation & Syntax",
+    explanation: "Armstrong's three core axioms (Reflexivity: if Y ⊆ X then X->Y; Augmentation: if X->Y then XZ->YZ; Transitivity: if X->Y and Y->Z then X->Z) are both sound and complete for functional dependencies."
+  },
+  {
+    question_text: "How is Attribute Closure (X⁺) used in database normalization and key discovery?",
+    options: [
+      "To compute the full set of attributes functionally determined by X under FDs F, testing whether X is a Superkey (when X⁺ = R)",
+      "To count how many DML DELETE triggers are attached to table X",
+      "To remove all foreign keys from an ER diagram before DDL generation",
+      "To enforce 1NF by splitting composite attributes into JSON blobs"
+    ],
+    correct_answer: "To compute the full set of attributes functionally determined by X under FDs F, testing whether X is a Superkey (when X⁺ = R)",
+    cognitive_layer: "Execution Dynamics & Flow",
+    explanation: "If the attribute closure X⁺ equals the entire relation schema R, then X functionally determines every attribute in R, proving X is a Superkey."
+  },
+  {
+    question_text: "What requirement does First Normal Form (1NF) impose on every relational table?",
+    options: [
+      "Every attribute domain must contain only atomic (indivisible) values, with no repeating groups or multi-valued attributes in a single cell",
+      "All non-key attributes must have zero transitive dependencies on candidate keys",
+      "Every determinant in every functional dependency must be a candidate key",
+      "Every table must have at least two foreign keys referencing parent entities"
+    ],
+    correct_answer: "Every attribute domain must contain only atomic (indivisible) values, with no repeating groups or multi-valued attributes in a single cell",
+    cognitive_layer: "Concept Foundation & Syntax",
+    explanation: "1NF disallows nested tables, arrays, and comma-separated multi-valued entries in a column, requiring each attribute value to be single and atomic."
+  },
+  {
+    question_text: "During Normalization, which property must a decomposition of R into R1 and R2 satisfy so that joining R1 ⋈ R2 never produces spurious extra tuples?",
+    options: [
+      "Lossless-Join Property: (R1 ∩ R2) -> R1 or (R1 ∩ R2) -> R2 must hold (the common attributes form a Superkey of R1 or R2)",
+      "Trivial Dependency Property: R1 ∩ R2 must be completely empty",
+      "DML Cascade Property: R1 must have fewer columns than R2",
+      "Clustered Index Property: R1 and R2 must share no foreign keys"
+    ],
+    correct_answer: "Lossless-Join Property: (R1 ∩ R2) -> R1 or (R1 ∩ R2) -> R2 must hold (the common attributes form a Superkey of R1 or R2)",
+    cognitive_layer: "Diagnostic Debugging & Tracing",
+    explanation: "If the intersection of R1 and R2 is a superkey of at least one decomposed relation, the natural join R1 ⋈ R2 reconstructs R cleanly without generating spurious rows."
+  },
+  {
+    question_text: "Why is 3NF decomposition sometimes chosen over BCNF decomposition in practical database design?",
+    options: [
+      "Every relation has a lossless-join and dependency-preserving 3NF decomposition, whereas BCNF guarantees lossless join but cannot always preserve all functional dependencies",
+      "BCNF fails to eliminate partial dependencies whereas 3NF eliminates multi-valued dependencies",
+      "3NF allows repeating multi-valued groups whereas BCNF requires 1NF atomicity",
+      "BCNF prevents the use of PRIMARY KEY and FOREIGN KEY DDL constraints"
+    ],
+    correct_answer: "Every relation has a lossless-join and dependency-preserving 3NF decomposition, whereas BCNF guarantees lossless join but cannot always preserve all functional dependencies",
+    cognitive_layer: "Edge Cases & Trap Detection",
+    explanation: "3NF is always achievable with both lossless join and dependency preservation; BCNF eliminates every non-superkey FD redundancy but may split an FD across two tables."
   }
 ];
 
@@ -646,6 +919,175 @@ function detectAcademicDomain(topic = '', referenceText = '') {
   return 'general';
 }
 
+const SUBTOPIC_ALIASES = {
+  entity: ['entity', 'weak entity', 'strong entity', 'er ', 'er-', 'er(', 'participation', 'cardinality', 'attribute', 'derived', 'multivalued', 'generalization', 'specialization', 'isa hierarchy'],
+  relationship: ['relationship', 'er ', 'er-', 'er(', 'cardinality', 'participation', 'recursive', 'unary', 'm:n', 'many-to-many', 'identifying relationship'],
+  er: ['entity', 'relationship', 'er ', 'er-', 'weak entity', 'cardinality', 'participation', 'attribute', 'generalization', 'specialization'],
+  dml: ['dml', 'data manipulation', 'insert', 'update', 'delete', 'on delete', 'rollback'],
+  ddl: ['ddl', 'data definition', 'create', 'alter table', 'drop table', 'truncate', 'constraint', 'schema'],
+  functional: ['functional depend', 'armstrong', 'closure', 'trivial', 'partial', 'transitive', 'x -> y', 'superkey', 'canonical'],
+  dependency: ['functional depend', 'armstrong', 'closure', 'trivial', 'partial', 'transitive', 'x -> y'],
+  fd: ['functional depend', 'armstrong', 'closure', 'trivial', 'partial', 'transitive', 'x -> y'],
+  key: ['key', 'primary key', 'candidate key', 'super key', 'superkey', 'foreign key', 'alternate key', 'composite', 'unique', 'prime attribute'],
+  keys: ['key', 'primary key', 'candidate key', 'super key', 'superkey', 'foreign key', 'alternate key', 'composite', 'unique', 'prime attribute'],
+  normal: ['normal', '1nf', '2nf', '3nf', 'bcnf', '4nf', 'lossless', 'decomposition', 'dependency-preserving', 'anomal'],
+  normalization: ['normal', '1nf', '2nf', '3nf', 'bcnf', '4nf', 'lossless', 'decomposition', 'dependency-preserving', 'anomal'],
+  join: ['join', 'inner join', 'lossless', 'cartesian'],
+  index: ['index', 'b+ tree', 'clustered', 'secondary'],
+  transaction: ['transaction', 'acid', '2pl', 'two-phase locking', 'deadlock', 'serializable', 'wal', 'durability'],
+  acid: ['acid', 'durability', 'atomicity', 'consistency', 'isolation', 'wal'],
+  class: ['class', 'blueprint', 'object', 'instance', 'constructor', 'encapsulation', 'static'],
+  object: ['object', 'class', 'instance', 'new keyword', 'heap', 'constructor', 'this'],
+  constructor: ['constructor', 'no-arg', 'super(', 'this(', 'overload'],
+  inheritance: ['inheritance', 'subclass', 'superclass', 'extends', 'super(', 'dynamic method dispatch', 'overrid'],
+  polymorphism: ['polymorphism', 'overload', 'overrid', 'dynamic method dispatch'],
+  encapsulation: ['encapsulation', 'private', 'getter', 'setter'],
+  pointer: ['pointer', 'dangling', 'malloc', 'calloc', 'decay', 'address'],
+  memory: ['malloc', 'calloc', 'realloc', 'free', 'heap', 'static', 'union', 'struct']
+};
+
+const BROAD_DOMAIN_WORDS = new Set([
+  'dbms', 'database', 'rdbms', 'sql', 'java', 'python', 'c', 'dsa', 'os',
+  'programming', 'language', 'concept', 'concepts', 'basic', 'basics', 'notes',
+  'introduction', 'intro', 'unit', 'chapter', 'module', 'syllabus', 'exam', 'quiz'
+]);
+
+const INSTRUCTION_FILLER_RE = /\b(give|generate|create|make|prepare|write|provide|list|ask|build|set|suggest|include|focus|topics?|syllabus|questions?|mcqs?|multiple|choice|about|regarding|please|following|based)\b/gi;
+const FINITE_FACT_VERB_RE = /\b(is|are|was|were|has|have|had|can|will|does|do|refers|means|defines|provides|eliminates|ensures|allows|uses|stores|represents|consists|requires|enforces|creates|operates|handles|returns|prevents|guarantees|maintains|executes|compiles|allocates|invokes|supports|separates|permits|disallows|depicts|relates|maps)\b/i;
+
+function isInstructionOrTopicList(sentence) {
+  const s = (sentence || '').trim();
+  if (!s) return true;
+  if (/^(give|generate|create|make|prepare|write|provide|list|ask|build|set|suggest|include|focus\s+on|need|want|topics?\s*:|syllabus\s*:|questions?\s+(on|about|for)|mcqs?\s+(on|about|for))\b/i.test(s)) {
+    return true;
+  }
+  const delimiterCount = (s.match(/[,;|]/g) || []).length;
+  if (delimiterCount >= 2 && (!FINITE_FACT_VERB_RE.test(s) || s.length / (delimiterCount + 1) < 28)) {
+    return true;
+  }
+  return false;
+}
+
+function extractFocusSubtopics(topic = '', referenceText = '') {
+  const refSnippet = (referenceText || '').slice(0, 1500);
+  const combined = `${topic}\n${refSnippet}`
+    .replace(INSTRUCTION_FILLER_RE, ' ')
+    .replace(/\b(on|for|with|and|or|of|the|in|to|a|an)\b/gi, ',');
+
+  const rawPhrases = combined
+    .split(/[,;\n/|&]+/)
+    .map(p => p.trim().toLowerCase().replace(/[^a-z0-9\s+:-]/g, ' ').replace(/\s+/g, ' '))
+    .filter(p => p.length >= 2 && !BROAD_DOMAIN_WORDS.has(p));
+
+  const unique = [];
+  const seen = new Set();
+  for (const phrase of rawPhrases) {
+    if (!seen.has(phrase)) {
+      seen.add(phrase);
+      unique.push(phrase);
+    }
+    const words = phrase.split(' ').filter(w => w.length >= 2 && !BROAD_DOMAIN_WORDS.has(w));
+    for (const w of words) {
+      if (!seen.has(w)) {
+        seen.add(w);
+        unique.push(w);
+      }
+    }
+  }
+  return unique;
+}
+
+function getSearchTermsForSubtopic(subtopic) {
+  const terms = new Set([subtopic]);
+  if (SUBTOPIC_ALIASES[subtopic]) {
+    for (const alias of SUBTOPIC_ALIASES[subtopic]) terms.add(alias);
+  }
+  for (const word of subtopic.split(/\s+/)) {
+    if (word.length >= 3) terms.add(word);
+    if (SUBTOPIC_ALIASES[word]) {
+      for (const alias of SUBTOPIC_ALIASES[word]) terms.add(alias);
+    }
+  }
+  return [...terms];
+}
+
+function selectTopicRelevantBankQuestions(bank, subtopics, targetCount, safeTopic, cognitiveLayer) {
+  const formatItem = (item) => ({
+    ...item,
+    cognitive_layer: cognitiveLayer && cognitiveLayer !== 'Multi-Layer Balanced' ? cognitiveLayer : item.cognitive_layer,
+    topic_tag: safeTopic,
+    marks: 2
+  });
+
+  if (!subtopics || subtopics.length === 0) {
+    return Array.from({ length: targetCount }, (_, idx) => formatItem(bank[idx % bank.length]));
+  }
+
+  const searchable = bank.map(item =>
+    `${item.question_text} ${item.explanation || ''} ${(item.options || []).join(' ')}`.toLowerCase()
+  );
+
+  const buckets = [];
+  for (const sub of subtopics) {
+    const terms = getSearchTermsForSubtopic(sub);
+    const matchingIndices = [];
+    bank.forEach((_, idx) => {
+      let score = 0;
+      for (const term of terms) {
+        if (searchable[idx].includes(term)) {
+          score += term === sub ? 3 : 1;
+        }
+      }
+      if (score > 0) {
+        matchingIndices.push({ idx, score });
+      }
+    });
+    if (matchingIndices.length > 0) {
+      matchingIndices.sort((a, b) => b.score - a.score);
+      buckets.push(matchingIndices.map(m => m.idx));
+    }
+  }
+
+  if (buckets.length === 0) {
+    return Array.from({ length: targetCount }, (_, idx) => formatItem(bank[idx % bank.length]));
+  }
+
+  const pickedIndices = [];
+  const used = new Set();
+  const cursors = new Array(buckets.length).fill(0);
+  let progressed = true;
+
+  while (pickedIndices.length < targetCount && progressed) {
+    progressed = false;
+    for (let b = 0; b < buckets.length && pickedIndices.length < targetCount; b++) {
+      while (cursors[b] < buckets[b].length) {
+        const candidateIdx = buckets[b][cursors[b]++];
+        if (!used.has(candidateIdx)) {
+          used.add(candidateIdx);
+          pickedIndices.push(candidateIdx);
+          progressed = true;
+          break;
+        }
+      }
+    }
+  }
+
+  if (pickedIndices.length < targetCount) {
+    for (let i = 0; i < bank.length && pickedIndices.length < targetCount; i++) {
+      if (!used.has(i)) {
+        used.add(i);
+        pickedIndices.push(i);
+      }
+    }
+  }
+
+  const result = pickedIndices.map(idx => formatItem(bank[idx]));
+  while (result.length < targetCount && result.length > 0) {
+    result.push({ ...result[result.length % pickedIndices.length] });
+  }
+  return result.slice(0, targetCount);
+}
+
 function extractCleanStatements(cleanRef) {
   if (!cleanRef) return [];
   const rawChunks = cleanRef
@@ -654,6 +1096,7 @@ function extractCleanStatements(cleanRef) {
     .filter(s => {
       if (s.length < 30 || s.length > 240) return false;
       if (s.startsWith('[Document attached')) return false;
+      if (isInstructionOrTopicList(s)) return false;
       const lower = s.toLowerCase();
       if (/\b(endobj|endstream|flatedecode|fontdescriptor|xref|trailer|mediabox)\b/.test(lower)) return false;
       const letters = (s.match(/[a-zA-Z]/g) || []).length;
@@ -741,14 +1184,15 @@ export function generateSmartQuestions({ topic, referenceText, count, difficulty
   const safeTopic = (topic || 'Computer Science').trim();
   const ref = (referenceText || '').trim();
 
-  const isPlaceholder = ref.startsWith('[Document attached:') || ref.includes('Ready for AI reference parsing') || ref.length < 35;
+  const isPlaceholder = ref.startsWith('[Document attached:') || ref.includes('Ready for AI reference parsing') || ref.length < 3;
   const cleanRef = isPlaceholder ? '' : ref;
 
   const domain = detectAcademicDomain(safeTopic, cleanRef);
   const selectedBank = QUESTION_BANKS[domain] || null;
   const domainDistractors = DOMAIN_DISTRACTORS[domain] || DOMAIN_DISTRACTORS.general;
+  const focusSubtopics = extractFocusSubtopics(safeTopic, cleanRef);
 
-  // If genuine reference text was extracted or pasted, synthesize from it
+  // If genuine factual reference notes were extracted/pasted (not merely an instruction/topic list), synthesize from them
   if (cleanRef) {
     const rawSentences = extractCleanStatements(cleanRef);
 
@@ -786,11 +1230,7 @@ export function generateSmartQuestions({ topic, referenceText, count, difficulty
       if (questions.length < targetCount) {
         const remaining = targetCount - questions.length;
         const fill = selectedBank
-          ? Array.from({ length: remaining }, (_, idx) => ({
-              ...selectedBank[idx % selectedBank.length],
-              topic_tag: safeTopic,
-              marks: 2
-            }))
+          ? selectTopicRelevantBankQuestions(selectedBank, focusSubtopics, remaining, safeTopic, cognitiveLayer)
           : buildGeneralTopicQuestions(safeTopic, remaining, cognitiveLayer);
         questions.push(...fill);
       }
@@ -803,18 +1243,6 @@ export function generateSmartQuestions({ topic, referenceText, count, difficulty
     return buildGeneralTopicQuestions(safeTopic, targetCount, cognitiveLayer);
   }
 
-  // Domain bank generator (pure academic questions)
-  const result = [];
-  for (let idx = 0; idx < targetCount; idx++) {
-    const item = selectedBank[idx % selectedBank.length];
-    result.push({
-      ...item,
-      cognitive_layer: cognitiveLayer && cognitiveLayer !== 'Multi-Layer Balanced' ? cognitiveLayer : item.cognitive_layer,
-      topic_tag: safeTopic,
-      marks: 2
-    });
-  }
-
-  return result.slice(0, targetCount);
+  return selectTopicRelevantBankQuestions(selectedBank, focusSubtopics, targetCount, safeTopic, cognitiveLayer);
 }
 

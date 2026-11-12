@@ -71,3 +71,35 @@ export const hasStoredToken = () => {
   return Boolean(getDecryptedToken());
 };
 
+const GEMINI_STORAGE_KEY = 'eduadmin_gemini_key_enc';
+
+export const setEncryptedGeminiKey = (rawKey) => {
+  if (!rawKey || typeof rawKey !== 'string') return;
+  try {
+    const encrypted = CryptoJS.AES.encrypt(rawKey.trim(), STORAGE_SECRET).toString();
+    localStorage.setItem(GEMINI_STORAGE_KEY, encrypted);
+  } catch (err) {
+    console.warn('Could not encrypt Gemini key:', err);
+  }
+};
+
+export const getDecryptedGeminiKey = () => {
+  try {
+    const stored = localStorage.getItem(GEMINI_STORAGE_KEY);
+    if (!stored) return '';
+    const bytes = CryptoJS.AES.decrypt(stored, STORAGE_SECRET);
+    const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+    return decrypted ? decrypted.trim() : '';
+  } catch {
+    return '';
+  }
+};
+
+export const removeEncryptedGeminiKey = () => {
+  try {
+    localStorage.removeItem(GEMINI_STORAGE_KEY);
+  } catch (err) {
+    console.warn('Could not remove Gemini key:', err);
+  }
+};
+
