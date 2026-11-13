@@ -20,7 +20,8 @@ import {
   Compass,
   Sparkles,
   Download,
-  X
+  X,
+  Send
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useToast } from '../components/Toast';
@@ -184,17 +185,36 @@ export const NotesView = ({ user }) => {
     }
 
     try {
-      const selectedBatch = batches.find((b) => String(b.id) === String(formData.batch_id));
-      const batchName = selectedBatch ? selectedBatch.name : 'All Batches';
+      const isAll = formData.batch_ids?.includes('all') || formData.batch_id === 'all';
+      let resolvedBatchId = null;
+      let resolvedBatchIds = null;
+      let batchName = 'All Batches';
+
+      if (!isAll && Array.isArray(formData.batch_ids) && formData.batch_ids.length > 0) {
+        const selectedBatches = batches.filter((b) => formData.batch_ids.includes(String(b.id)));
+        if (selectedBatches.length > 0) {
+          resolvedBatchId = selectedBatches[0].id;
+          resolvedBatchIds = selectedBatches.map(b => b.id).join(',');
+          batchName = selectedBatches.map(b => b.name).join(', ');
+        }
+      } else if (formData.batch_id && formData.batch_id !== 'all') {
+        const selectedBatch = batches.find((b) => String(b.id) === String(formData.batch_id));
+        if (selectedBatch) {
+          resolvedBatchId = selectedBatch.id;
+          resolvedBatchIds = String(selectedBatch.id);
+          batchName = selectedBatch.name;
+        }
+      }
 
       await api.createNote({
         ...formData,
         class: batchName !== 'All Batches' ? batchName : (formData.class || 'All Classes'),
         organization_id: user?.organization_id || 1,
-        batch_id: formData.batch_id === 'all' ? null : Number(formData.batch_id),
+        batch_id: resolvedBatchId,
+        batch_ids: resolvedBatchIds,
         batch_name: batchName
       });
-      success(`Study note "${formData.title}" published successfully`);
+      success(`Study note "${formData.title}" created successfully!`);
       setIsAddModalOpen(false);
       resetForm();
       fetchNotes();
@@ -211,15 +231,21 @@ export const NotesView = ({ user }) => {
 
   const handleEditClick = (note) => {
     setSelectedNote(note);
-    let matchedBatchId = 'all';
-    if (note.batch_id) {
-      matchedBatchId = String(note.batch_id);
-    } else if (note.batch_name) {
-      const found = batches.find((b) => b.name?.trim().toLowerCase() === note.batch_name?.trim().toLowerCase());
-      if (found) matchedBatchId = String(found.id);
-    } else if (note.class) {
-      const found = batches.find((b) => b.name?.trim().toLowerCase() === note.class?.trim().toLowerCase());
-      if (found) matchedBatchId = String(found.id);
+    let matchedBatchIds = ['all'];
+    if (note.batch_ids) {
+      matchedBatchIds = String(note.batch_ids).split(',').map(s => s.trim()).filter(Boolean);
+    } else if (note.batch_name && note.batch_name !== 'All Batches') {
+      const names = note.batch_name.split(',').map(s => s.trim().toLowerCase());
+      const foundIds = [];
+      batches.forEach(b => {
+        if (names.includes(b.name?.trim().toLowerCase())) {
+          foundIds.push(String(b.id));
+        }
+      });
+      if (foundIds.length > 0) matchedBatchIds = foundIds;
+      else if (note.batch_id) matchedBatchIds = [String(note.batch_id)];
+    } else if (note.batch_id) {
+      matchedBatchIds = [String(note.batch_id)];
     }
 
     setFormData({
@@ -229,7 +255,8 @@ export const NotesView = ({ user }) => {
       semester: note.semester || 'Semester 1',
       content_type: note.content_type || 'text',
       content_url: note.content_url || '',
-      batch_id: matchedBatchId,
+      batch_id: matchedBatchIds[0] || 'all',
+      batch_ids: matchedBatchIds.length > 0 ? matchedBatchIds : ['all'],
       batch_name: note.batch_name || 'All Batches'
     });
     setIsEditModalOpen(true);
@@ -244,16 +271,35 @@ export const NotesView = ({ user }) => {
     if (!selectedNote) return;
 
     try {
-      const selectedBatch = batches.find((b) => String(b.id) === String(formData.batch_id));
-      const batchName = selectedBatch ? selectedBatch.name : 'All Batches';
+      const isAll = formData.batch_ids?.includes('all') || formData.batch_id === 'all';
+      let resolvedBatchId = null;
+      let resolvedBatchIds = null;
+      let batchName = 'All Batches';
+
+      if (!isAll && Array.isArray(formData.batch_ids) && formData.batch_ids.length > 0) {
+        const selectedBatches = batches.filter((b) => formData.batch_ids.includes(String(b.id)));
+        if (selectedBatches.length > 0) {
+          resolvedBatchId = selectedBatches[0].id;
+          resolvedBatchIds = selectedBatches.map(b => b.id).join(',');
+          batchName = selectedBatches.map(b => b.name).join(', ');
+        }
+      } else if (formData.batch_id && formData.batch_id !== 'all') {
+        const selectedBatch = batches.find((b) => String(b.id) === String(formData.batch_id));
+        if (selectedBatch) {
+          resolvedBatchId = selectedBatch.id;
+          resolvedBatchIds = String(selectedBatch.id);
+          batchName = selectedBatch.name;
+        }
+      }
 
       await api.updateNote(selectedNote.id, {
         ...formData,
         class: batchName !== 'All Batches' ? batchName : (formData.class || 'All Classes'),
-        batch_id: formData.batch_id === 'all' ? null : Number(formData.batch_id),
+        batch_id: resolvedBatchId,
+        batch_ids: resolvedBatchIds,
         batch_name: batchName
       });
-      success('Study note updated successfully');
+      success(`Study note "${formData.title}" updated successfully!`);
       setIsEditModalOpen(false);
       resetForm();
       fetchNotes();
@@ -526,6 +572,15 @@ export const NotesView = ({ user }) => {
                     <div className="table-actions">
                       {isAdmin && (
                         <>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPublishNoteModal(note)}
+                            className="btn-icon btn-ghost"
+                            title="Publish / Assign to Batches"
+                            style={{ color: '#818cf8' }}
+                          >
+                            <Send size={15} />
+                          </button>
                           <button onClick={() => handleEditClick(note)} className="btn-icon btn-ghost" title="Edit Note">
                             <Edit2 size={16} />
                           </button>
@@ -1046,6 +1101,231 @@ export const NotesView = ({ user }) => {
           title="Delete Study Note"
           message={`Are you sure you want to delete "${selectedNote?.title}"?`}
         />
+      )}
+      {/* PUBLISH NOTE TO MULTIPLE BATCHES MODAL */}
+      {isPublishNoteModalOpen && noteToPublish && (
+        <Modal
+          isOpen={isPublishNoteModalOpen}
+          onClose={() => {
+            if (!publishingNote) {
+              setIsPublishNoteModalOpen(false);
+              setNoteToPublish(null);
+            }
+          }}
+          title={
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <div style={{
+                background: 'rgba(99, 102, 241, 0.15)',
+                color: 'var(--primary)',
+                padding: '0.4rem',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <Send size={18} />
+              </div>
+              <span>Publish Study Note to Batches</span>
+            </div>
+          }
+          footer={
+            <>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={publishingNote}
+                onClick={() => {
+                  setIsPublishNoteModalOpen(false);
+                  setNoteToPublish(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={publishingNote || (!publishNoteBatchIds.includes('all') && publishNoteBatchIds.length === 0)}
+                onClick={handleConfirmPublishNote}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+              >
+                {publishingNote ? <RefreshCw size={14} className="spin" /> : <Send size={14} />}
+                {publishingNote ? 'Publishing...' : 'Save & Publish Note'}
+              </button>
+            </>
+          }
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: '10px',
+              padding: '0.85rem 1rem'
+            }}>
+              <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.25rem' }}>
+                {noteToPublish.title}
+              </div>
+              <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.8rem', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
+                <span><strong>Topic:</strong> {noteToPublish.topic || 'General Topic'}</span>
+                <span>•</span>
+                <span><strong>Format:</strong> {noteToPublish.content_type?.toUpperCase() || 'TEXT'}</span>
+                <span>•</span>
+                <span><strong>Semester:</strong> {noteToPublish.semester || 'Semester 1'}</span>
+              </div>
+            </div>
+
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
+                <label className="form-label" style={{ margin: 0, fontWeight: 600 }}>
+                  Select Target Batches / Cohorts:
+                </label>
+                <div style={{ display: 'flex', gap: '0.4rem' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
+                    onClick={() => setPublishNoteBatchIds(['all'])}
+                  >
+                    Select All Batches
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
+                    onClick={() => setPublishNoteBatchIds([])}
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
+
+              <div
+                onClick={() => {
+                  if (publishNoteBatchIds.includes('all')) {
+                    setPublishNoteBatchIds([]);
+                  } else {
+                    setPublishNoteBatchIds(['all']);
+                  }
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  padding: '0.75rem 1rem',
+                  borderRadius: '8px',
+                  border: `1px solid ${publishNoteBatchIds.includes('all') ? 'var(--primary)' : 'var(--border-subtle)'}`,
+                  background: publishNoteBatchIds.includes('all') ? 'rgba(99, 102, 241, 0.12)' : 'var(--bg-card)',
+                  cursor: 'pointer',
+                  marginBottom: '0.75rem',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={publishNoteBatchIds.includes('all')}
+                  onChange={() => {}}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+                <div>
+                  <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '0.9rem' }}>
+                    🌐 All Batches (Global Access)
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    Study note will be published and accessible to every student across all cohorts.
+                  </div>
+                </div>
+              </div>
+
+              <div style={{
+                maxHeight: '220px',
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.45rem',
+                paddingRight: '0.25rem'
+              }}>
+                {batches.length === 0 ? (
+                  <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                    No specific batches found. You can publish to "All Batches".
+                  </div>
+                ) : (
+                  batches.map((b) => {
+                    const isChecked = !publishNoteBatchIds.includes('all') && publishNoteBatchIds.includes(String(b.id));
+                    return (
+                      <div
+                        key={b.id}
+                        onClick={() => {
+                          let next;
+                          if (publishNoteBatchIds.includes('all')) {
+                            next = [String(b.id)];
+                          } else if (isChecked) {
+                            next = publishNoteBatchIds.filter(id => id !== String(b.id));
+                          } else {
+                            next = [...publishNoteBatchIds, String(b.id)];
+                          }
+                          setPublishNoteBatchIds(next);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '0.65rem 0.9rem',
+                          borderRadius: '8px',
+                          border: `1px solid ${isChecked ? 'var(--primary)' : 'var(--border-subtle)'}`,
+                          background: isChecked ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-card)',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {}}
+                            style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                          />
+                          <div>
+                            <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '0.875rem' }}>
+                              {b.name}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                              {b.subject || 'Standard Batch'} {b.join_code ? `• Code: ${b.join_code}` : ''}
+                            </div>
+                          </div>
+                        </div>
+                        {b.current_students_count !== undefined && (
+                          <span className="badge badge-secondary" style={{ fontSize: '0.7rem' }}>
+                            {b.current_students_count} students
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            <div style={{
+              background: 'rgba(99, 102, 241, 0.06)',
+              border: '1px solid rgba(99, 102, 241, 0.2)',
+              borderRadius: '8px',
+              padding: '0.65rem 0.85rem',
+              fontSize: '0.825rem',
+              color: 'var(--text-main)'
+            }}>
+              <strong>Access Summary: </strong>
+              {publishNoteBatchIds.includes('all') ? (
+                <span style={{ color: 'var(--primary)' }}>Open to all enrolled students across every batch</span>
+              ) : publishNoteBatchIds.length === 0 ? (
+                <span style={{ color: 'var(--warning)' }}>No batch selected (select at least one or All Batches)</span>
+              ) : (
+                <span style={{ color: 'var(--primary)' }}>
+                  Published to {publishNoteBatchIds.length} batch(es):{' '}
+                  {batches.filter(b => publishNoteBatchIds.includes(String(b.id))).map(b => b.name).join(', ')}
+                </span>
+              )}
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

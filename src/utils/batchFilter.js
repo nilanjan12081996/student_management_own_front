@@ -1,9 +1,17 @@
 export const normalizeStr = (s) => (s || '').toString().toLowerCase().replace(/[^a-z0-9]/g, '');
 
+const splitBatchTokens = (str) => {
+  if (!str) return [];
+  return str
+    .split(/[,;/|]/)
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+};
+
 export const filterAccessibleNotes = (notes, user, batches = []) => {
   if (!Array.isArray(notes)) return [];
   const role = user?.role?.toLowerCase();
-  const isAdmin = role === 'admin' || role === 'superadmin';
+  const isAdmin = role === 'admin' || role === 'superadmin' || role === 'tutor' || role === 'teacher';
   if (isAdmin) return notes;
 
   const rawBatches = Array.isArray(batches) ? batches : [];
@@ -27,21 +35,42 @@ export const filterAccessibleNotes = (notes, user, batches = []) => {
 
     // Global / Open to all batches
     const isAllBatches =
-      (!n.batch_id && !n.batch_name && !n.class) ||
+      (!n.batch_id && !n.batch_name && !n.class && !n.batch_ids) ||
       n.batch_id === 'all' ||
-      n.batch_name === 'All Batches' ||
-      n.batch_name === 'all' ||
-      n.class === 'All Classes' ||
-      n.class === 'General';
+      nBatchName === 'all batches' ||
+      nBatchName === 'all' ||
+      nClass === 'all classes' ||
+      nClass === 'general';
 
     if (isAllBatches) return true;
 
-    // Must match student's specific batch
-    const idMatches = sBatchId && nBatchId && sBatchId === nBatchId;
+    // Student without any batch assigned only sees open / global notes
+    if (!sBatchName && !sBatchId && !sBatchCode) return false;
+
+    // Check multiple assigned batch names or IDs
+    const nBatchNames = splitBatchTokens(n.batch_name);
+    if (nBatchNames.includes('all batches') || nBatchNames.includes('all')) return true;
+
+    const nClasses = splitBatchTokens(n.class);
+    const nBatchIds = [
+      nBatchId,
+      ...(typeof n.batch_ids === 'string' ? n.batch_ids.split(/[,;]/).map((s) => s.trim()) : (Array.isArray(n.batch_ids) ? n.batch_ids.map(String) : []))
+    ].filter(Boolean);
+
+    // 1. Match by Batch ID
+    const idMatches = sBatchId && nBatchIds.includes(sBatchId);
+
+    // 2. Match by Batch Name or Class
     const nameMatches =
-      (sBatchName && nBatchName && (sBatchName === nBatchName || normalizeStr(sBatchName) === normalizeStr(nBatchName))) ||
-      (sBatchName && nClass && (sBatchName === nClass || normalizeStr(sBatchName) === normalizeStr(nClass)));
-    const codeMatches = sBatchCode && (nBatchName.toUpperCase() === sBatchCode || nClass.toUpperCase() === sBatchCode);
+      sBatchName &&
+      (nBatchNames.some((nb) => nb === sBatchName || normalizeStr(nb) === normalizeStr(sBatchName)) ||
+        nClasses.some((nc) => nc === sBatchName || normalizeStr(nc) === normalizeStr(sBatchName)));
+
+    // 3. Match by Batch Join Code
+    const codeMatches =
+      sBatchCode &&
+      (nBatchNames.some((nb) => nb.toUpperCase() === sBatchCode) ||
+        nClasses.some((nc) => nc.toUpperCase() === sBatchCode));
 
     return !!(idMatches || nameMatches || codeMatches);
   });
@@ -74,24 +103,42 @@ export const filterAccessibleQuizzes = (quizzes, user, batches = []) => {
 
     // Global / Open to all batches
     const isAllBatches =
-      (!q.batch_id && !q.batch_name && !q.class) ||
+      (!q.batch_id && !q.batch_name && !q.class && !q.batch_ids) ||
       q.batch_id === 'all' ||
-      q.batch_name === 'All Batches' ||
-      q.batch_name === 'all' ||
-      q.class === 'All Classes' ||
-      q.class === 'General';
+      qBatchName === 'all batches' ||
+      qBatchName === 'all' ||
+      qClass === 'all classes' ||
+      qClass === 'general';
 
     if (isAllBatches) return true;
 
     // Student without any batch assigned only sees open / global quizzes
     if (!sBatchName && !sBatchId && !sBatchCode) return false;
 
-    // Must match student's specific batch
-    const idMatches = sBatchId && qBatchId && sBatchId === qBatchId;
+    // Check multiple assigned batch names or IDs
+    const qBatchNames = splitBatchTokens(q.batch_name);
+    if (qBatchNames.includes('all batches') || qBatchNames.includes('all')) return true;
+
+    const qClasses = splitBatchTokens(q.class);
+    const qBatchIds = [
+      qBatchId,
+      ...(typeof q.batch_ids === 'string' ? q.batch_ids.split(/[,;]/).map((s) => s.trim()) : (Array.isArray(q.batch_ids) ? q.batch_ids.map(String) : []))
+    ].filter(Boolean);
+
+    // 1. Match by Batch ID
+    const idMatches = sBatchId && qBatchIds.includes(sBatchId);
+
+    // 2. Match by Batch Name or Class
     const nameMatches =
-      (sBatchName && qBatchName && (sBatchName === qBatchName || normalizeStr(sBatchName) === normalizeStr(qBatchName))) ||
-      (sBatchName && qClass && (sBatchName === qClass || normalizeStr(sBatchName) === normalizeStr(qClass)));
-    const codeMatches = sBatchCode && (qBatchName.toUpperCase() === sBatchCode || qClass.toUpperCase() === sBatchCode);
+      sBatchName &&
+      (qBatchNames.some((qb) => qb === sBatchName || normalizeStr(qb) === normalizeStr(sBatchName)) ||
+        qClasses.some((qc) => qc === sBatchName || normalizeStr(qc) === normalizeStr(sBatchName)));
+
+    // 3. Match by Batch Join Code
+    const codeMatches =
+      sBatchCode &&
+      (qBatchNames.some((qb) => qb.toUpperCase() === sBatchCode) ||
+        qClasses.some((qc) => qc.toUpperCase() === sBatchCode));
 
     return !!(idMatches || nameMatches || codeMatches);
   });

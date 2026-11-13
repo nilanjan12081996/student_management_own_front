@@ -3093,6 +3093,9 @@ class ApiService {
             batch_id: noteData.batch_id !== undefined
               ? (noteData.batch_id ? Number(noteData.batch_id) : null)
               : n.batch_id,
+            batch_ids: noteData.batch_ids !== undefined
+              ? noteData.batch_ids
+              : n.batch_ids,
             batch_name: noteData.batch_name !== undefined
               ? noteData.batch_name
               : n.batch_name

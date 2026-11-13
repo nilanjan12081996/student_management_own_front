@@ -520,7 +520,7 @@ export const AiStudioView = ({ user }) => {
               type="password"
               className="form-control"
               style={{ flex: '1 1 280px' }}
-              placeholder={hasLocalGeminiKey ? '•••••••••••••••••••• (Enter new key to replace)' : 'Paste Gemini API Key (starts with AIza...)'}
+              placeholder={hasLocalGeminiKey ? '•••••••••••••••••••• (Enter new key to replace)' : 'Paste Gemini API Key (starts with AIza... or AQ...)'}
               value={geminiKeyInput}
               onChange={(e) => setGeminiKeyInput(e.target.value)}
             />

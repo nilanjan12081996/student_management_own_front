@@ -22,7 +22,8 @@ import {
   ArrowRight,
   TrendingUp,
   RotateCcw,
-  Users
+  Users,
+  Send
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useToast } from '../components/Toast';
@@ -54,8 +55,15 @@ export const QuizzesView = ({ user }) => {
     month: 'September',
     total_marks: 25,
     batch_id: 'all',
+    batch_ids: ['all'],
     batch_name: 'All Batches'
   });
+
+  // Publish Quiz to Batches Modal states
+  const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+  const [quizToPublish, setQuizToPublish] = useState(null);
+  const [publishBatchIds, setPublishBatchIds] = useState(['all']);
+  const [publishing, setPublishing] = useState(false);
 
   // Question Management states
   const [activeQuizQuestions, setActiveQuizQuestions] = useState(null);
@@ -147,6 +155,7 @@ export const QuizzesView = ({ user }) => {
       month: 'September',
       total_marks: 25,
       batch_id: 'all',
+      batch_ids: ['all'],
       batch_name: 'All Batches'
     });
     setSelectedQuiz(null);
@@ -160,17 +169,36 @@ export const QuizzesView = ({ user }) => {
     }
 
     try {
-      const selectedBatch = batches.find((b) => String(b.id) === String(quizFormData.batch_id));
-      const batchName = selectedBatch ? selectedBatch.name : (quizFormData.batch_name || 'All Batches');
+      const isAll = quizFormData.batch_ids?.includes('all') || quizFormData.batch_id === 'all';
+      let resolvedBatchId = null;
+      let resolvedBatchIds = null;
+      let batchName = 'All Batches';
+
+      if (!isAll && Array.isArray(quizFormData.batch_ids) && quizFormData.batch_ids.length > 0) {
+        const selectedBatches = batches.filter((b) => quizFormData.batch_ids.includes(String(b.id)));
+        if (selectedBatches.length > 0) {
+          resolvedBatchId = selectedBatches[0].id;
+          resolvedBatchIds = selectedBatches.map(b => b.id).join(',');
+          batchName = selectedBatches.map(b => b.name).join(', ');
+        }
+      } else if (quizFormData.batch_id && quizFormData.batch_id !== 'all') {
+        const selectedBatch = batches.find((b) => String(b.id) === String(quizFormData.batch_id));
+        if (selectedBatch) {
+          resolvedBatchId = selectedBatch.id;
+          resolvedBatchIds = String(selectedBatch.id);
+          batchName = selectedBatch.name;
+        }
+      }
 
       await api.createQuiz({
         ...quizFormData,
-        batch_id: quizFormData.batch_id === 'all' ? null : Number(quizFormData.batch_id),
+        batch_id: resolvedBatchId,
+        batch_ids: resolvedBatchIds,
         batch_name: batchName,
         class: batchName,
         organization_id: user?.organization_id || 1
       });
-      success(`Quiz "${quizFormData.title}" created successfully`);
+      success(`Quiz "${quizFormData.title}" created successfully!`);
       setIsAddQuizModalOpen(false);
       resetQuizForm();
       fetchQuizzesAndProgress();
@@ -182,22 +210,29 @@ export const QuizzesView = ({ user }) => {
 
   const handleEditQuizClick = (quiz) => {
     setSelectedQuiz(quiz);
-    let matchedBatchId = 'all';
-    if (quiz.batch_id) {
-      matchedBatchId = String(quiz.batch_id);
+    let matchedBatchIds = ['all'];
+    if (quiz.batch_ids) {
+      matchedBatchIds = String(quiz.batch_ids).split(',').map(s => s.trim()).filter(Boolean);
     } else if (quiz.batch_name && quiz.batch_name !== 'All Batches') {
-      const found = batches.find((b) => b.name?.trim().toLowerCase() === quiz.batch_name?.trim().toLowerCase());
-      if (found) matchedBatchId = String(found.id);
-    } else if (quiz.class && quiz.class !== 'All Classes' && quiz.class !== 'General') {
-      const found = batches.find((b) => b.name?.trim().toLowerCase() === quiz.class?.trim().toLowerCase());
-      if (found) matchedBatchId = String(found.id);
+      const names = quiz.batch_name.split(',').map(s => s.trim().toLowerCase());
+      const foundIds = [];
+      batches.forEach(b => {
+        if (names.includes(b.name?.trim().toLowerCase())) {
+          foundIds.push(String(b.id));
+        }
+      });
+      if (foundIds.length > 0) matchedBatchIds = foundIds;
+      else if (quiz.batch_id) matchedBatchIds = [String(quiz.batch_id)];
+    } else if (quiz.batch_id) {
+      matchedBatchIds = [String(quiz.batch_id)];
     }
 
     setQuizFormData({
       title: quiz.title || '',
       month: quiz.month || 'September',
       total_marks: quiz.total_marks || 25,
-      batch_id: matchedBatchId,
+      batch_id: matchedBatchIds[0] || 'all',
+      batch_ids: matchedBatchIds.length > 0 ? matchedBatchIds : ['all'],
       batch_name: quiz.batch_name || 'All Batches'
     });
     setIsEditQuizModalOpen(true);
@@ -208,12 +243,31 @@ export const QuizzesView = ({ user }) => {
     if (!selectedQuiz) return;
 
     try {
-      const selectedBatch = batches.find((b) => String(b.id) === String(quizFormData.batch_id));
-      const batchName = selectedBatch ? selectedBatch.name : (quizFormData.batch_name || 'All Batches');
+      const isAll = quizFormData.batch_ids?.includes('all') || quizFormData.batch_id === 'all';
+      let resolvedBatchId = null;
+      let resolvedBatchIds = null;
+      let batchName = 'All Batches';
+
+      if (!isAll && Array.isArray(quizFormData.batch_ids) && quizFormData.batch_ids.length > 0) {
+        const selectedBatches = batches.filter((b) => quizFormData.batch_ids.includes(String(b.id)));
+        if (selectedBatches.length > 0) {
+          resolvedBatchId = selectedBatches[0].id;
+          resolvedBatchIds = selectedBatches.map(b => b.id).join(',');
+          batchName = selectedBatches.map(b => b.name).join(', ');
+        }
+      } else if (quizFormData.batch_id && quizFormData.batch_id !== 'all') {
+        const selectedBatch = batches.find((b) => String(b.id) === String(quizFormData.batch_id));
+        if (selectedBatch) {
+          resolvedBatchId = selectedBatch.id;
+          resolvedBatchIds = String(selectedBatch.id);
+          batchName = selectedBatch.name;
+        }
+      }
 
       await api.updateQuiz(selectedQuiz.id, {
         ...quizFormData,
-        batch_id: quizFormData.batch_id === 'all' ? null : Number(quizFormData.batch_id),
+        batch_id: resolvedBatchId,
+        batch_ids: resolvedBatchIds,
         batch_name: batchName,
         class: batchName
       });
@@ -224,6 +278,71 @@ export const QuizzesView = ({ user }) => {
     } catch (err) {
       console.error(err);
       error(err.message || 'Failed to update quiz');
+    }
+  };
+
+  const handleOpenPublishModal = (quiz) => {
+    setQuizToPublish(quiz);
+    if (!quiz.batch_name || quiz.batch_name === 'All Batches' || quiz.batch_id === 'all' || (!quiz.batch_id && !quiz.batch_ids && !quiz.batch_name)) {
+      setPublishBatchIds(['all']);
+    } else {
+      let ids = [];
+      if (quiz.batch_ids) {
+        ids = String(quiz.batch_ids).split(',').map(s => s.trim()).filter(Boolean);
+      }
+      if (ids.length === 0 && quiz.batch_id) {
+        ids.push(String(quiz.batch_id));
+      }
+      if (ids.length === 0 && quiz.batch_name) {
+        const names = quiz.batch_name.split(',').map(s => s.trim().toLowerCase());
+        batches.forEach(b => {
+          if (names.includes(b.name?.trim().toLowerCase())) {
+            ids.push(String(b.id));
+          }
+        });
+      }
+      setPublishBatchIds(ids.length > 0 ? ids : ['all']);
+    }
+    setIsPublishModalOpen(true);
+  };
+
+  const handleConfirmPublish = async () => {
+    if (!quizToPublish) return;
+    setPublishing(true);
+    try {
+      const isAll = publishBatchIds.includes('all') || publishBatchIds.length === 0;
+      let batchPayload;
+
+      if (isAll) {
+        batchPayload = {
+          batch_id: null,
+          batch_ids: null,
+          batch_name: 'All Batches',
+          class: 'All Classes'
+        };
+      } else {
+        const selectedBatches = batches.filter(b => publishBatchIds.includes(String(b.id)));
+        const batchNames = selectedBatches.map(b => b.name).join(', ');
+        const batchIdsStr = selectedBatches.map(b => b.id).join(',');
+        batchPayload = {
+          batch_id: selectedBatches[0]?.id || null,
+          batch_ids: batchIdsStr,
+          batch_name: batchNames || 'All Batches',
+          class: batchNames || 'All Classes'
+        };
+      }
+
+      await api.updateQuiz(quizToPublish.id, batchPayload);
+
+      setQuizzes(prev => prev.map(q => q.id === quizToPublish.id ? { ...q, ...batchPayload } : q));
+      success(`Quiz "${quizToPublish.title}" successfully published to ${batchPayload.batch_name}!`);
+      setIsPublishModalOpen(false);
+      setQuizToPublish(null);
+    } catch (err) {
+      console.error('Failed to publish quiz:', err);
+      error(err.message || 'Failed to publish quiz');
+    } finally {
+      setPublishing(false);
     }
   };
 
@@ -590,9 +709,15 @@ export const QuizzesView = ({ user }) => {
                         <Calendar size={12} />
                         {quiz.month || 'Unassigned'}
                       </span>
-                      <span className="badge badge-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <span
+                        className="badge badge-secondary"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', maxWidth: '190px' }}
+                        title={quiz.batch_name || quiz.class || 'All Batches'}
+                      >
                         <Users size={12} />
-                        {quiz.batch_name || quiz.class || 'All Batches'}
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {quiz.batch_name || quiz.class || 'All Batches'}
+                        </span>
                       </span>
                       {isCompleted && (
                         <span
@@ -692,15 +817,44 @@ export const QuizzesView = ({ user }) => {
                       </button>
                     </>
                   ) : (
-                    <button
-                      className={`btn btn-sm ${isManaging ? 'btn-primary' : 'btn-secondary'}`}
-                      onClick={() => fetchQuestionsForQuiz(quiz)}
-                      style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
-                    >
-                      <ListOrdered size={14} />
-                      {isManaging ? 'Managing Questions' : 'Manage Questions'}
-                      <ChevronRight size={14} />
-                    </button>
+                    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                      <button
+                        className={`btn btn-sm ${isManaging ? 'btn-primary' : 'btn-secondary'}`}
+                        onClick={() => fetchQuestionsForQuiz(quiz)}
+                        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
+                      >
+                        <ListOrdered size={14} />
+                        {isManaging ? 'Managing Questions' : 'Manage Questions'}
+                        <ChevronRight size={14} />
+                      </button>
+
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenPublishModal(quiz);
+                        }}
+                        style={{
+                          width: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.45rem',
+                          background: 'rgba(99, 102, 241, 0.08)',
+                          border: '1px solid rgba(99, 102, 241, 0.35)',
+                          color: '#818cf8',
+                          fontWeight: 600,
+                          fontSize: '0.85rem',
+                          padding: '0.45rem 0.75rem',
+                          borderRadius: '8px'
+                        }}
+                        title="Publish or assign this quiz to multiple batches"
+                      >
+                        <Send size={13} />
+                        Publish Quiz
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -1350,29 +1504,120 @@ export const QuizzesView = ({ user }) => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Target Batch (Access Restricted) *</label>
-            <select
-              className="form-control"
-              value={quizFormData.batch_id}
-              onChange={(e) => {
-                const bId = e.target.value;
-                const found = batches.find((b) => String(b.id) === String(bId));
-                setQuizFormData({
-                  ...quizFormData,
-                  batch_id: bId,
-                  batch_name: found ? found.name : 'All Batches'
-                });
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+              <label className="form-label" style={{ margin: 0 }}>Target Batches (Access Restricted) *</label>
+              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem' }}
+                  onClick={() => setQuizFormData({ ...quizFormData, batch_ids: ['all'], batch_id: 'all', batch_name: 'All Batches' })}
+                >
+                  All Batches
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem' }}
+                  onClick={() => setQuizFormData({ ...quizFormData, batch_ids: [], batch_id: 'all', batch_name: '' })}
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+
+            <div
+              onClick={() => {
+                const isAll = quizFormData.batch_ids?.includes('all');
+                if (isAll) {
+                  setQuizFormData({ ...quizFormData, batch_ids: [], batch_id: 'all', batch_name: '' });
+                } else {
+                  setQuizFormData({ ...quizFormData, batch_ids: ['all'], batch_id: 'all', batch_name: 'All Batches' });
+                }
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.6rem',
+                padding: '0.55rem 0.85rem',
+                borderRadius: '8px',
+                border: `1px solid ${quizFormData.batch_ids?.includes('all') ? 'var(--primary)' : 'var(--border-subtle)'}`,
+                background: quizFormData.batch_ids?.includes('all') ? 'rgba(99, 102, 241, 0.12)' : 'var(--bg-card)',
+                cursor: 'pointer',
+                marginBottom: '0.5rem'
               }}
             >
-              <option value="all">All Batches (Accessible to all enrolled students)</option>
-              {batches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  Cohort: {b.name} ({b.subject})
-                </option>
-              ))}
-            </select>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Only students enrolled in this selected batch will have permission to view and take this quiz.
+              <input
+                type="checkbox"
+                checked={quizFormData.batch_ids?.includes('all')}
+                onChange={() => {}}
+                style={{ cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                🌐 All Batches (Open to all cohorts)
+              </span>
+            </div>
+
+            <div style={{
+              maxHeight: '140px',
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.35rem',
+              padding: '0.4rem',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: '8px',
+              background: 'rgba(0,0,0,0.15)'
+            }}>
+              {batches.map((b) => {
+                const isChecked = !quizFormData.batch_ids?.includes('all') && quizFormData.batch_ids?.includes(String(b.id));
+                return (
+                  <div
+                    key={b.id}
+                    onClick={() => {
+                      let next;
+                      if (quizFormData.batch_ids?.includes('all')) {
+                        next = [String(b.id)];
+                      } else if (isChecked) {
+                        next = quizFormData.batch_ids.filter((id) => id !== String(b.id));
+                      } else {
+                        next = [...(quizFormData.batch_ids || []), String(b.id)];
+                      }
+                      const selectedBatches = batches.filter((bt) => next.includes(String(bt.id)));
+                      setQuizFormData({
+                        ...quizFormData,
+                        batch_ids: next,
+                        batch_id: selectedBatches[0]?.id || 'all',
+                        batch_name: selectedBatches.map(bt => bt.name).join(', ') || 'All Batches'
+                      });
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '0.45rem 0.65rem',
+                      borderRadius: '6px',
+                      border: `1px solid ${isChecked ? 'var(--primary)' : 'transparent'}`,
+                      background: isChecked ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {}}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>{b.name}</span>
+                    </div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{b.subject || ''}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>
+              Selected: <strong>{quizFormData.batch_ids?.includes('all') ? 'All Batches' : (quizFormData.batch_name || 'None')}</strong>
             </span>
           </div>
 
@@ -1433,29 +1678,120 @@ export const QuizzesView = ({ user }) => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Target Batch (Access Restricted) *</label>
-            <select
-              className="form-control"
-              value={quizFormData.batch_id}
-              onChange={(e) => {
-                const bId = e.target.value;
-                const found = batches.find((b) => String(b.id) === String(bId));
-                setQuizFormData({
-                  ...quizFormData,
-                  batch_id: bId,
-                  batch_name: found ? found.name : 'All Batches'
-                });
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+              <label className="form-label" style={{ margin: 0 }}>Target Batches (Access Restricted) *</label>
+              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem' }}
+                  onClick={() => setQuizFormData({ ...quizFormData, batch_ids: ['all'], batch_id: 'all', batch_name: 'All Batches' })}
+                >
+                  All Batches
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem' }}
+                  onClick={() => setQuizFormData({ ...quizFormData, batch_ids: [], batch_id: 'all', batch_name: '' })}
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+
+            <div
+              onClick={() => {
+                const isAll = quizFormData.batch_ids?.includes('all');
+                if (isAll) {
+                  setQuizFormData({ ...quizFormData, batch_ids: [], batch_id: 'all', batch_name: '' });
+                } else {
+                  setQuizFormData({ ...quizFormData, batch_ids: ['all'], batch_id: 'all', batch_name: 'All Batches' });
+                }
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.6rem',
+                padding: '0.55rem 0.85rem',
+                borderRadius: '8px',
+                border: `1px solid ${quizFormData.batch_ids?.includes('all') ? 'var(--primary)' : 'var(--border-subtle)'}`,
+                background: quizFormData.batch_ids?.includes('all') ? 'rgba(99, 102, 241, 0.12)' : 'var(--bg-card)',
+                cursor: 'pointer',
+                marginBottom: '0.5rem'
               }}
             >
-              <option value="all">All Batches (Accessible to all enrolled students)</option>
-              {batches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  Cohort: {b.name} ({b.subject})
-                </option>
-              ))}
-            </select>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Only students enrolled in this selected batch will have permission to view and take this quiz.
+              <input
+                type="checkbox"
+                checked={quizFormData.batch_ids?.includes('all')}
+                onChange={() => {}}
+                style={{ cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-main)' }}>
+                🌐 All Batches (Open to all cohorts)
+              </span>
+            </div>
+
+            <div style={{
+              maxHeight: '140px',
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.35rem',
+              padding: '0.4rem',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: '8px',
+              background: 'rgba(0,0,0,0.15)'
+            }}>
+              {batches.map((b) => {
+                const isChecked = !quizFormData.batch_ids?.includes('all') && quizFormData.batch_ids?.includes(String(b.id));
+                return (
+                  <div
+                    key={b.id}
+                    onClick={() => {
+                      let next;
+                      if (quizFormData.batch_ids?.includes('all')) {
+                        next = [String(b.id)];
+                      } else if (isChecked) {
+                        next = quizFormData.batch_ids.filter((id) => id !== String(b.id));
+                      } else {
+                        next = [...(quizFormData.batch_ids || []), String(b.id)];
+                      }
+                      const selectedBatches = batches.filter((bt) => next.includes(String(bt.id)));
+                      setQuizFormData({
+                        ...quizFormData,
+                        batch_ids: next,
+                        batch_id: selectedBatches[0]?.id || 'all',
+                        batch_name: selectedBatches.map(bt => bt.name).join(', ') || 'All Batches'
+                      });
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '0.45rem 0.65rem',
+                      borderRadius: '6px',
+                      border: `1px solid ${isChecked ? 'var(--primary)' : 'transparent'}`,
+                      background: isChecked ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {}}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>{b.name}</span>
+                    </div>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{b.subject || ''}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>
+              Selected: <strong>{quizFormData.batch_ids?.includes('all') ? 'All Batches' : (quizFormData.batch_name || 'None')}</strong>
             </span>
           </div>
 
@@ -1694,6 +2030,237 @@ export const QuizzesView = ({ user }) => {
         title="Delete All Questions"
         message={`Are you sure you want to delete all ${questions.length} question${questions.length === 1 ? '' : 's'} in "${activeQuizQuestions?.title || 'this quiz'}"? This action cannot be undone.`}
       />
+
+      {/* PUBLISH QUIZ TO MULTIPLE BATCHES MODAL */}
+      {isPublishModalOpen && quizToPublish && (
+        <Modal
+          isOpen={isPublishModalOpen}
+          onClose={() => {
+            if (!publishing) {
+              setIsPublishModalOpen(false);
+              setQuizToPublish(null);
+            }
+          }}
+          title={
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <div style={{
+                background: 'rgba(99, 102, 241, 0.15)',
+                color: 'var(--primary)',
+                padding: '0.4rem',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <Send size={18} />
+              </div>
+              <span>Publish Quiz to Batches</span>
+            </div>
+          }
+          footer={
+            <>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={publishing}
+                onClick={() => {
+                  setIsPublishModalOpen(false);
+                  setQuizToPublish(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={publishing || (!publishBatchIds.includes('all') && publishBatchIds.length === 0)}
+                onClick={handleConfirmPublish}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+              >
+                {publishing ? <RefreshCw size={14} className="spin" /> : <Send size={14} />}
+                {publishing ? 'Publishing...' : 'Save & Publish Quiz'}
+              </button>
+            </>
+          }
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {/* Quiz Info Header */}
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: '10px',
+              padding: '0.85rem 1rem'
+            }}>
+              <div style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.25rem' }}>
+                {quizToPublish.title}
+              </div>
+              <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.8rem', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
+                <span><strong>Target Month:</strong> {quizToPublish.month || 'Unassigned'}</span>
+                <span>•</span>
+                <span><strong>Questions:</strong> {quizToPublish.questions?.length || 0}</span>
+                <span>•</span>
+                <span><strong>Total Marks:</strong> {quizToPublish.total_marks || 0}</span>
+              </div>
+            </div>
+
+            {/* Quick Toggle Buttons */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
+                <label className="form-label" style={{ margin: 0, fontWeight: 600 }}>
+                  Select Target Batches / Cohorts:
+                </label>
+                <div style={{ display: 'flex', gap: '0.4rem' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
+                    onClick={() => setPublishBatchIds(['all'])}
+                  >
+                    Select All Batches
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
+                    onClick={() => setPublishBatchIds([])}
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
+
+              {/* All Batches Option */}
+              <div
+                onClick={() => {
+                  if (publishBatchIds.includes('all')) {
+                    setPublishBatchIds([]);
+                  } else {
+                    setPublishBatchIds(['all']);
+                  }
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  padding: '0.75rem 1rem',
+                  borderRadius: '8px',
+                  border: `1px solid ${publishBatchIds.includes('all') ? 'var(--primary)' : 'var(--border-subtle)'}`,
+                  background: publishBatchIds.includes('all') ? 'rgba(99, 102, 241, 0.12)' : 'var(--bg-card)',
+                  cursor: 'pointer',
+                  marginBottom: '0.75rem',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={publishBatchIds.includes('all')}
+                  onChange={() => {}}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+                <div>
+                  <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '0.9rem' }}>
+                    🌐 All Batches (Global Access)
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    Quiz will be published and accessible to every student across all cohorts.
+                  </div>
+                </div>
+              </div>
+
+              {/* Specific Batches Checklist */}
+              <div style={{
+                maxHeight: '220px',
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.45rem',
+                paddingRight: '0.25rem'
+              }}>
+                {batches.length === 0 ? (
+                  <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                    No specific batches found. You can publish to "All Batches".
+                  </div>
+                ) : (
+                  batches.map((b) => {
+                    const isChecked = !publishBatchIds.includes('all') && publishBatchIds.includes(String(b.id));
+                    return (
+                      <div
+                        key={b.id}
+                        onClick={() => {
+                          let next;
+                          if (publishBatchIds.includes('all')) {
+                            next = [String(b.id)];
+                          } else if (isChecked) {
+                            next = publishBatchIds.filter(id => id !== String(b.id));
+                          } else {
+                            next = [...publishBatchIds, String(b.id)];
+                          }
+                          setPublishBatchIds(next);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '0.65rem 0.9rem',
+                          borderRadius: '8px',
+                          border: `1px solid ${isChecked ? 'var(--primary)' : 'var(--border-subtle)'}`,
+                          background: isChecked ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-card)',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {}}
+                            style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                          />
+                          <div>
+                            <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '0.875rem' }}>
+                              {b.name}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                              {b.subject || 'Standard Batch'} {b.join_code ? `• Code: ${b.join_code}` : ''}
+                            </div>
+                          </div>
+                        </div>
+                        {b.current_students_count !== undefined && (
+                          <span className="badge badge-secondary" style={{ fontSize: '0.7rem' }}>
+                            {b.current_students_count} students
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Publication Summary */}
+            <div style={{
+              background: 'rgba(99, 102, 241, 0.06)',
+              border: '1px solid rgba(99, 102, 241, 0.2)',
+              borderRadius: '8px',
+              padding: '0.65rem 0.85rem',
+              fontSize: '0.825rem',
+              color: 'var(--text-main)'
+            }}>
+              <strong>Access Summary: </strong>
+              {publishBatchIds.includes('all') ? (
+                <span style={{ color: 'var(--primary)' }}>Open to all enrolled students across every batch</span>
+              ) : publishBatchIds.length === 0 ? (
+                <span style={{ color: 'var(--warning)' }}>No batch selected (select at least one or All Batches)</span>
+              ) : (
+                <span style={{ color: 'var(--primary)' }}>
+                  Published to {publishBatchIds.length} batch(es):{' '}
+                  {batches.filter(b => publishBatchIds.includes(String(b.id))).map(b => b.name).join(', ')}
+                </span>
+              )}
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };
