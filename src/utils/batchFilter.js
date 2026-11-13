@@ -8,6 +8,19 @@ const splitBatchTokens = (str) => {
     .filter(Boolean);
 };
 
+export const isQuizPublished = (quiz) => {
+  if (!quiz) return false;
+  if (quiz.is_published === true || quiz.is_published === 1) return true;
+  if (quiz.is_published === false || quiz.is_published === 0) return false;
+  // Fallback for legacy database records
+  const bName = (quiz.batch_name || '').toLowerCase().trim();
+  if (bName.includes('draft') || bName.includes('unpublished')) return false;
+  if (quiz.batch_ids && String(quiz.batch_ids).trim() !== '') return true;
+  if (quiz.batch_name && quiz.batch_name !== 'All Batches' && quiz.batch_name.trim() !== '') return true;
+  if (quiz.batch_id && quiz.batch_id !== 'all') return true;
+  return false;
+};
+
 export const filterAccessibleNotes = (notes, user, batches = []) => {
   if (!Array.isArray(notes)) return [];
   const role = user?.role?.toLowerCase();
@@ -97,6 +110,9 @@ export const filterAccessibleQuizzes = (quizzes, user, batches = []) => {
   const sBatchCode = (studentBatch?.join_code || user?.tuition_code || '').trim().toUpperCase();
 
   return quizzes.filter((q) => {
+    // Non-admin students can only view quizzes that have been published
+    if (!isQuizPublished(q)) return false;
+
     const qBatchName = (q.batch_name || '').trim().toLowerCase();
     const qBatchId = q.batch_id ? String(q.batch_id) : '';
     const qClass = (q.class || '').trim().toLowerCase();
@@ -143,5 +159,3 @@ export const filterAccessibleQuizzes = (quizzes, user, batches = []) => {
     return !!(idMatches || nameMatches || codeMatches);
   });
 };
-
-

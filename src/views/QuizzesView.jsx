@@ -23,13 +23,18 @@ import {
   TrendingUp,
   RotateCcw,
   Users,
-  Send
+  Send,
+  Clock,
+  Check,
+  LayoutGrid,
+  List,
+  Layers
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useToast } from '../components/Toast';
 import { Modal } from '../components/Modal';
 import { ConfirmModal } from '../components/ConfirmModal';
-import { filterAccessibleQuizzes } from '../utils/batchFilter';
+import { filterAccessibleQuizzes, isQuizPublished } from '../utils/batchFilter';
 
 export const QuizzesView = ({ user }) => {
   const navigate = useNavigate();
@@ -42,6 +47,8 @@ export const QuizzesView = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [monthFilter, setMonthFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'published' | 'draft'
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
 
   // Quiz Modal states
   const [isAddQuizModalOpen, setIsAddQuizModalOpen] = useState(false);
@@ -196,7 +203,8 @@ export const QuizzesView = ({ user }) => {
         batch_ids: resolvedBatchIds,
         batch_name: batchName,
         class: batchName,
-        organization_id: user?.organization_id || 1
+        organization_id: user?.organization_id || 1,
+        is_published: false
       });
       success(`Quiz "${quizFormData.title}" created successfully!`);
       setIsAddQuizModalOpen(false);
@@ -318,7 +326,8 @@ export const QuizzesView = ({ user }) => {
           batch_id: null,
           batch_ids: null,
           batch_name: 'All Batches',
-          class: 'All Classes'
+          class: 'All Classes',
+          is_published: true
         };
       } else {
         const selectedBatches = batches.filter(b => publishBatchIds.includes(String(b.id)));
@@ -328,19 +337,39 @@ export const QuizzesView = ({ user }) => {
           batch_id: selectedBatches[0]?.id || null,
           batch_ids: batchIdsStr,
           batch_name: batchNames || 'All Batches',
-          class: batchNames || 'All Classes'
+          class: batchNames || 'All Classes',
+          is_published: true
         };
       }
 
       await api.updateQuiz(quizToPublish.id, batchPayload);
 
-      setQuizzes(prev => prev.map(q => q.id === quizToPublish.id ? { ...q, ...batchPayload } : q));
+      setQuizzes(prev => prev.map(q => q.id === quizToPublish.id ? { ...q, ...batchPayload, is_published: true } : q));
       success(`Quiz "${quizToPublish.title}" successfully published to ${batchPayload.batch_name}!`);
       setIsPublishModalOpen(false);
       setQuizToPublish(null);
     } catch (err) {
       console.error('Failed to publish quiz:', err);
       error(err.message || 'Failed to publish quiz');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handleUnpublishQuiz = async () => {
+    if (!quizToPublish) return;
+    setPublishing(true);
+    try {
+      await api.updateQuiz(quizToPublish.id, {
+        is_published: false
+      });
+      setQuizzes(prev => prev.map(q => q.id === quizToPublish.id ? { ...q, is_published: false } : q));
+      success(`Quiz "${quizToPublish.title}" has been unpublished and moved to Drafts.`);
+      setIsPublishModalOpen(false);
+      setQuizToPublish(null);
+    } catch (err) {
+      console.error('Failed to unpublish quiz:', err);
+      error(err.message || 'Failed to unpublish quiz');
     } finally {
       setPublishing(false);
     }
@@ -564,10 +593,21 @@ export const QuizzesView = ({ user }) => {
   // Filter quizzes by student batch permissions first, then search and month
   const accessibleQuizzes = filterAccessibleQuizzes(quizzes, user, batches);
 
+  const allCount = accessibleQuizzes.length;
+  const publishedCount = accessibleQuizzes.filter((q) => isQuizPublished(q)).length;
+  const draftCount = allCount - publishedCount;
+
   const filteredQuizzes = accessibleQuizzes.filter((q) => {
     const matchesSearch = q.title?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesMonth = monthFilter === 'all' || q.month?.toLowerCase() === monthFilter.toLowerCase();
-    return matchesSearch && matchesMonth;
+    const published = isQuizPublished(q);
+    const matchesStatus =
+      statusFilter === 'all'
+        ? true
+        : statusFilter === 'published'
+        ? published
+        : !published;
+    return matchesSearch && matchesMonth && matchesStatus;
   });
 
   return (
@@ -654,10 +694,189 @@ export const QuizzesView = ({ user }) => {
             <option value="november">November</option>
             <option value="december">December</option>
           </select>
-        </div>
+                </div>
       </div>
 
-      {/* Main Grid: Quiz Cards */}
+      {/* Quiz Status Navigation Tabs & View Mode Switcher */}
+      {isAdmin && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1rem',
+            flexWrap: 'wrap',
+            marginBottom: '1.25rem',
+            padding: '0.75rem 1rem',
+            background: 'rgba(255, 255, 255, 0.02)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: '12px'
+          }}
+        >
+          {/* Status Tabs */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.825rem', fontWeight: 600, color: 'var(--text-muted)', marginRight: '0.25rem' }}>
+              Filter By Status:
+            </span>
+
+            {/* All Quizzes Tab */}
+            <button
+              type="button"
+              onClick={() => setStatusFilter('all')}
+              className={`btn btn-sm ${statusFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                borderRadius: '20px',
+                padding: '0.35rem 0.85rem',
+                fontSize: '0.825rem',
+                fontWeight: 600
+              }}
+            >
+              <Layers size={13} />
+              <span>All Quizzes</span>
+              <span
+                style={{
+                  background: statusFilter === 'all' ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.1)',
+                  padding: '0.05rem 0.45rem',
+                  borderRadius: '10px',
+                  fontSize: '0.75rem',
+                  fontWeight: 700
+                }}
+              >
+                {allCount}
+              </span>
+            </button>
+
+            {/* Published Quizzes Tab */}
+            <button
+              type="button"
+              onClick={() => setStatusFilter('published')}
+              className={`btn btn-sm ${statusFilter === 'published' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                borderRadius: '20px',
+                padding: '0.35rem 0.85rem',
+                fontSize: '0.825rem',
+                fontWeight: 600,
+                borderColor: statusFilter === 'published' ? '#10b981' : 'rgba(16, 185, 129, 0.35)',
+                background: statusFilter === 'published' ? '#10b981' : 'rgba(16, 185, 129, 0.08)',
+                color: statusFilter === 'published' ? '#ffffff' : '#10b981'
+              }}
+            >
+              <CheckCircle size={13} />
+              <span>Published Quizzes</span>
+              <span
+                style={{
+                  background: statusFilter === 'published' ? 'rgba(0, 0, 0, 0.25)' : 'rgba(16, 185, 129, 0.2)',
+                  color: statusFilter === 'published' ? '#ffffff' : '#10b981',
+                  padding: '0.05rem 0.45rem',
+                  borderRadius: '10px',
+                  fontSize: '0.75rem',
+                  fontWeight: 700
+                }}
+              >
+                {publishedCount}
+              </span>
+            </button>
+
+            {/* Draft / Unpublished Tab */}
+            <button
+              type="button"
+              onClick={() => setStatusFilter('draft')}
+              className={`btn btn-sm ${statusFilter === 'draft' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                borderRadius: '20px',
+                padding: '0.35rem 0.85rem',
+                fontSize: '0.825rem',
+                fontWeight: 600,
+                borderColor: statusFilter === 'draft' ? '#94a3b8' : undefined,
+                background: statusFilter === 'draft' ? '#475569' : undefined,
+                color: statusFilter === 'draft' ? '#ffffff' : 'var(--text-muted)'
+              }}
+            >
+              <Clock size={13} />
+              <span>Drafts / Unpublished</span>
+              <span
+                style={{
+                  background: statusFilter === 'draft' ? 'rgba(0, 0, 0, 0.25)' : 'rgba(255, 255, 255, 0.1)',
+                  padding: '0.05rem 0.45rem',
+                  borderRadius: '10px',
+                  fontSize: '0.75rem',
+                  fontWeight: 700
+                }}
+              >
+                {draftCount}
+              </span>
+            </button>
+          </div>
+
+          {/* View Mode Switcher: Cards Grid vs List / Table */}
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              background: 'rgba(0, 0, 0, 0.25)',
+              padding: '0.2rem',
+              borderRadius: '8px',
+              border: '1px solid var(--border-subtle)'
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setViewMode('grid')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                padding: '0.35rem 0.65rem',
+                borderRadius: '6px',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                border: 'none',
+                cursor: 'pointer',
+                background: viewMode === 'grid' ? 'var(--primary)' : 'transparent',
+                color: viewMode === 'grid' ? '#ffffff' : 'var(--text-muted)',
+                transition: 'all 0.15s ease'
+              }}
+              title="Cards Grid View"
+            >
+              <LayoutGrid size={14} />
+              <span>Cards</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                padding: '0.35rem 0.65rem',
+                borderRadius: '6px',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                border: 'none',
+                cursor: 'pointer',
+                background: viewMode === 'list' ? 'var(--primary)' : 'transparent',
+                color: viewMode === 'list' ? '#ffffff' : 'var(--text-muted)',
+                transition: 'all 0.15s ease'
+              }}
+              title="Table / List View"
+            >
+              <List size={14} />
+              <span>List View</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Main Grid / List: Quizzes */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: '3rem' }}>Loading quizzes and assessment progress...</div>
       ) : filteredQuizzes.length === 0 ? (
@@ -666,11 +885,227 @@ export const QuizzesView = ({ user }) => {
             <div className="empty-icon">
               <HelpCircle size={28} />
             </div>
-            <div className="empty-title">No Quizzes Found</div>
-            <div className="empty-text">Create your first quiz to start adding questions.</div>
+            <div className="empty-title">
+              {statusFilter === 'published'
+                ? 'No Published Quizzes Found'
+                : statusFilter === 'draft'
+                ? 'No Draft Quizzes Found'
+                : 'No Quizzes Found'}
+            </div>
+            <div className="empty-text">
+              {statusFilter === 'published'
+                ? 'No quizzes are currently published to student batches. Click "Drafts / Unpublished" to review and publish a quiz.'
+                : statusFilter === 'draft'
+                ? 'All of your quizzes are currently published to student batches.'
+                : 'Create your first quiz to start adding questions.'}
+            </div>
+            {statusFilter !== 'all' && (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                style={{ marginTop: '0.75rem' }}
+                onClick={() => setStatusFilter('all')}
+              >
+                View All Quizzes ({allCount})
+              </button>
+            )}
+          </div>
+        </div>
+      ) : viewMode === 'list' ? (
+        /* ================= LIST / TABLE VIEW ================= */
+        <div className="card" style={{ padding: '0', overflow: 'hidden', marginBottom: '2rem' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ background: 'rgba(255, 255, 255, 0.03)', borderBottom: '1px solid var(--border-subtle)' }}>
+                  <th style={{ padding: '0.85rem 1rem', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>QUIZ TITLE</th>
+                  <th style={{ padding: '0.85rem 1rem', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>STATUS</th>
+                  <th style={{ padding: '0.85rem 1rem', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>ASSIGNED BATCHES</th>
+                  <th style={{ padding: '0.85rem 1rem', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>MONTH</th>
+                  <th style={{ padding: '0.85rem 1rem', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>QUESTIONS</th>
+                  <th style={{ padding: '0.85rem 1rem', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>MARKS</th>
+                  <th style={{ padding: '0.85rem 1rem', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, textAlign: 'right' }}>ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredQuizzes.map((quiz) => {
+                  const questionCount = quiz.questions ? quiz.questions.length : 0;
+                  const isManaging = activeQuizQuestions?.id === quiz.id;
+                  const published = isQuizPublished(quiz);
+                  const attempt = !isAdmin ? getQuizAttempt(quiz) : null;
+                  const isCompleted = !isAdmin && !!attempt;
+                  const attemptPct = isCompleted
+                    ? Math.round((Number(attempt.score) / Math.max(Number(attempt.total_marks), 1)) * 100)
+                    : null;
+
+                  return (
+                    <tr
+                      key={quiz.id}
+                      style={{
+                        borderBottom: '1px solid var(--border-subtle)',
+                        background: isManaging ? 'rgba(99, 102, 241, 0.08)' : 'transparent',
+                        transition: 'background 0.15s ease'
+                      }}
+                    >
+                      <td style={{ padding: '0.85rem 1rem', verticalAlign: 'middle' }}>
+                        <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '0.95rem' }}>
+                          {quiz.title}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          ID: #{quiz.id}
+                        </div>
+                      </td>
+                      <td style={{ padding: '0.85rem 1rem', verticalAlign: 'middle' }}>
+                        {published ? (
+                          <span
+                            className="badge"
+                            style={{
+                              background: 'rgba(16, 185, 129, 0.15)',
+                              color: '#10b981',
+                              border: '1px solid rgba(16, 185, 129, 0.35)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.3rem',
+                              fontSize: '0.75rem',
+                              fontWeight: 600
+                            }}
+                          >
+                            <CheckCircle size={11} />
+                            Published
+                          </span>
+                        ) : (
+                          <span
+                            className="badge"
+                            style={{
+                              background: 'rgba(148, 163, 184, 0.12)',
+                              color: '#94a3b8',
+                              border: '1px solid rgba(148, 163, 184, 0.25)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.3rem',
+                              fontSize: '0.75rem',
+                              fontWeight: 500
+                            }}
+                          >
+                            <Clock size={11} />
+                            Draft
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ padding: '0.85rem 1rem', verticalAlign: 'middle' }}>
+                        <div
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                            color: 'var(--text-main)',
+                            fontSize: '0.85rem',
+                            maxWidth: '220px'
+                          }}
+                          title={quiz.batch_name || quiz.class || 'All Batches'}
+                        >
+                          <Users size={13} color="var(--primary)" />
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {quiz.batch_name || quiz.class || 'All Batches'}
+                          </span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '0.85rem 1rem', verticalAlign: 'middle' }}>
+                        <span className="badge badge-primary" style={{ fontSize: '0.75rem' }}>
+                          <Calendar size={11} />
+                          {quiz.month || 'Unassigned'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.85rem 1rem', verticalAlign: 'middle', fontSize: '0.85rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <ListOrdered size={14} color="var(--primary)" />
+                          <span>{questionCount}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '0.85rem 1rem', verticalAlign: 'middle', fontSize: '0.85rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <Award size={14} color="var(--warning)" />
+                          <span>{quiz.total_marks || 0}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '0.85rem 1rem', verticalAlign: 'middle', textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                          {isAdmin ? (
+                            <>
+                              <button
+                                className={`btn btn-sm ${isManaging ? 'btn-primary' : 'btn-secondary'}`}
+                                onClick={() => fetchQuestionsForQuiz(quiz)}
+                                style={{ fontSize: '0.8rem', padding: '0.35rem 0.65rem' }}
+                              >
+                                <ListOrdered size={13} />
+                                {isManaging ? 'Managing' : 'Questions'}
+                              </button>
+                              <button
+                                className="btn btn-sm"
+                                onClick={() => handleOpenPublishModal(quiz)}
+                                style={{
+                                  fontSize: '0.8rem',
+                                  padding: '0.35rem 0.65rem',
+                                  background: published ? 'rgba(16, 185, 129, 0.12)' : 'rgba(99, 102, 241, 0.12)',
+                                  borderColor: published ? 'rgba(16, 185, 129, 0.4)' : 'rgba(99, 102, 241, 0.4)',
+                                  color: published ? '#10b981' : '#818cf8',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.35rem',
+                                  fontWeight: 600
+                                }}
+                                title={published ? 'Edit published batches' : 'Publish quiz to batches'}
+                              >
+                                {published ? <Check size={13} /> : <Send size={13} />}
+                                {published ? 'Published' : 'Publish'}
+                              </button>
+                              <button
+                                onClick={() => handleEditQuizClick(quiz)}
+                                className="btn-icon btn-ghost"
+                                title="Edit Quiz details"
+                                style={{ padding: '0.35rem' }}
+                              >
+                                <Edit2 size={14} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteQuizClick(quiz)}
+                                className="btn-icon btn-ghost"
+                                style={{ color: 'var(--danger)', padding: '0.35rem' }}
+                                title="Delete Quiz"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                className="btn btn-sm btn-primary"
+                                onClick={() => handleStartQuiz(quiz)}
+                                style={{ fontSize: '0.8rem', padding: '0.35rem 0.65rem' }}
+                              >
+                                {isCompleted ? <RotateCcw size={13} /> : <Play size={13} />}
+                                {isCompleted ? `Retake (${attemptPct}%)` : 'Take Quiz'}
+                              </button>
+                              <button
+                                className={`btn btn-sm ${isManaging ? 'btn-primary' : 'btn-secondary'}`}
+                                onClick={() => fetchQuestionsForQuiz(quiz)}
+                                style={{ fontSize: '0.8rem', padding: '0.35rem 0.65rem' }}
+                              >
+                                {isManaging ? 'Viewing' : 'Preview'}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       ) : (
+        /* ================= GRID VIEW ================= */
         <div className="responsive-card-grid" style={{ marginBottom: "2rem" }}
         >
           {filteredQuizzes.map((quiz) => {
@@ -704,7 +1139,44 @@ export const QuizzesView = ({ user }) => {
                       marginBottom: '0.75rem'
                     }}
                   >
-                    <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                      {/* Publication Status Badge */}
+                      {isQuizPublished(quiz) ? (
+                        <span
+                          className="badge"
+                          style={{
+                            background: 'rgba(16, 185, 129, 0.15)',
+                            color: '#10b981',
+                            border: '1px solid rgba(16, 185, 129, 0.35)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                            fontSize: '0.75rem',
+                            fontWeight: 600
+                          }}
+                        >
+                          <CheckCircle size={11} />
+                          Published
+                        </span>
+                      ) : (
+                        <span
+                          className="badge"
+                          style={{
+                            background: 'rgba(148, 163, 184, 0.12)',
+                            color: '#94a3b8',
+                            border: '1px solid rgba(148, 163, 184, 0.25)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                            fontSize: '0.75rem',
+                            fontWeight: 500
+                          }}
+                        >
+                          <Clock size={11} />
+                          Draft
+                        </span>
+                      )}
+
                       <span className="badge badge-primary">
                         <Calendar size={12} />
                         {quiz.month || 'Unassigned'}
@@ -828,32 +1300,61 @@ export const QuizzesView = ({ user }) => {
                         <ChevronRight size={14} />
                       </button>
 
-                      <button
-                        type="button"
-                        className="btn btn-sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenPublishModal(quiz);
-                        }}
-                        style={{
-                          width: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '0.45rem',
-                          background: 'rgba(99, 102, 241, 0.08)',
-                          border: '1px solid rgba(99, 102, 241, 0.35)',
-                          color: '#818cf8',
-                          fontWeight: 600,
-                          fontSize: '0.85rem',
-                          padding: '0.45rem 0.75rem',
-                          borderRadius: '8px'
-                        }}
-                        title="Publish or assign this quiz to multiple batches"
-                      >
-                        <Send size={13} />
-                        Publish Quiz
-                      </button>
+                      {isQuizPublished(quiz) ? (
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenPublishModal(quiz);
+                          }}
+                          style={{
+                            width: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '0.45rem',
+                            background: 'rgba(16, 185, 129, 0.1)',
+                            border: '1px solid rgba(16, 185, 129, 0.4)',
+                            color: '#10b981',
+                            fontWeight: 600,
+                            fontSize: '0.85rem',
+                            padding: '0.45rem 0.75rem',
+                            borderRadius: '8px'
+                          }}
+                          title="Quiz is published. Click to manage batches or unpublish."
+                        >
+                          <Check size={13} />
+                          Published to Batches (Edit)
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenPublishModal(quiz);
+                          }}
+                          style={{
+                            width: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '0.45rem',
+                            background: 'rgba(99, 102, 241, 0.1)',
+                            border: '1px solid rgba(99, 102, 241, 0.35)',
+                            color: '#818cf8',
+                            fontWeight: 600,
+                            fontSize: '0.85rem',
+                            padding: '0.45rem 0.75rem',
+                            borderRadius: '8px'
+                          }}
+                          title="Publish or assign this quiz to student batches"
+                        >
+                          <Send size={13} />
+                          Publish Quiz to Batches
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -2058,29 +2559,56 @@ export const QuizzesView = ({ user }) => {
             </div>
           }
           footer={
-            <>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                disabled={publishing}
-                onClick={() => {
-                  setIsPublishModalOpen(false);
-                  setQuizToPublish(null);
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                disabled={publishing || (!publishBatchIds.includes('all') && publishBatchIds.length === 0)}
-                onClick={handleConfirmPublish}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-              >
-                {publishing ? <RefreshCw size={14} className="spin" /> : <Send size={14} />}
-                {publishing ? 'Publishing...' : 'Save & Publish Quiz'}
-              </button>
-            </>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <div>
+                {isQuizPublished(quizToPublish) && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    disabled={publishing}
+                    onClick={handleUnpublishQuiz}
+                    style={{
+                      color: 'var(--danger)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      fontSize: '0.825rem',
+                      padding: '0.4rem 0.75rem',
+                      background: 'rgba(239, 68, 68, 0.08)',
+                      border: '1px solid rgba(239, 68, 68, 0.25)',
+                      borderRadius: '6px'
+                    }}
+                    title="Unpublish this quiz and move it back to Drafts"
+                  >
+                    <RotateCcw size={13} />
+                    Unpublish / Move to Draft
+                  </button>
+                )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: 'auto' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={publishing}
+                  onClick={() => {
+                    setIsPublishModalOpen(false);
+                    setQuizToPublish(null);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={publishing || (!publishBatchIds.includes('all') && publishBatchIds.length === 0)}
+                  onClick={handleConfirmPublish}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                >
+                  {publishing ? <RefreshCw size={14} className="spin" /> : <Send size={14} />}
+                  {publishing ? 'Publishing...' : 'Save & Publish Quiz'}
+                </button>
+              </div>
+            </div>
           }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
