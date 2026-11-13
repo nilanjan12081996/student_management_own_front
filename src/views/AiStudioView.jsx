@@ -502,7 +502,7 @@ export const AiStudioView = ({ user }) => {
             <div>
               <div style={{ fontWeight: 700, fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                 <KeyRound size={15} color="var(--primary)" />
-                Connect Google Gemini AI (gemini-2.5-flash)
+                Connect Google Gemini AI (gemini-3.8-flash / 3.5-flash)
               </div>
               <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
                 {aiStatus?.has_gemini
@@ -537,7 +537,7 @@ export const AiStudioView = ({ user }) => {
                     setHasLocalGeminiKey(true);
                     setGeminiKeyInput('');
                     setShowGeminiConfig(false);
-                    success(`Connected to Google Gemini (${res.model || 'gemini-2.5-flash'})!`);
+                    success(`Connected to Google Gemini (${res.model || 'gemini-3.8-flash'})!`);
                   } else {
                     error(res?.error || 'Could not verify Gemini API key.');
                   }

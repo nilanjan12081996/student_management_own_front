@@ -66,6 +66,12 @@ export const NotesView = ({ user }) => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
+  // Publish Note to Batches Modal states
+  const [isPublishNoteModalOpen, setIsPublishNoteModalOpen] = useState(false);
+  const [noteToPublish, setNoteToPublish] = useState(null);
+  const [publishNoteBatchIds, setPublishNoteBatchIds] = useState(['all']);
+  const [publishingNote, setPublishingNote] = useState(false);
+
   const [selectedNote, setSelectedNote] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
@@ -312,6 +318,71 @@ export const NotesView = ({ user }) => {
   const handleDeleteClick = (note) => {
     setSelectedNote(note);
     setIsDeleteModalOpen(true);
+  };
+
+  const handleOpenPublishNoteModal = (note) => {
+    setNoteToPublish(note);
+    if (!note.batch_name || note.batch_name === 'All Batches' || note.batch_id === 'all' || (!note.batch_id && !note.batch_ids && !note.batch_name)) {
+      setPublishNoteBatchIds(['all']);
+    } else {
+      let ids = [];
+      if (note.batch_ids) {
+        ids = String(note.batch_ids).split(',').map(s => s.trim()).filter(Boolean);
+      }
+      if (ids.length === 0 && note.batch_id) {
+        ids.push(String(note.batch_id));
+      }
+      if (ids.length === 0 && note.batch_name) {
+        const names = note.batch_name.split(',').map(s => s.trim().toLowerCase());
+        batches.forEach(b => {
+          if (names.includes(b.name?.trim().toLowerCase())) {
+            ids.push(String(b.id));
+          }
+        });
+      }
+      setPublishNoteBatchIds(ids.length > 0 ? ids : ['all']);
+    }
+    setIsPublishNoteModalOpen(true);
+  };
+
+  const handleConfirmPublishNote = async () => {
+    if (!noteToPublish) return;
+    setPublishingNote(true);
+    try {
+      const isAll = publishNoteBatchIds.includes('all') || publishNoteBatchIds.length === 0;
+      let batchPayload;
+
+      if (isAll) {
+        batchPayload = {
+          batch_id: null,
+          batch_ids: null,
+          batch_name: 'All Batches',
+          class: 'All Classes'
+        };
+      } else {
+        const selectedBatches = batches.filter(b => publishNoteBatchIds.includes(String(b.id)));
+        const batchNames = selectedBatches.map(b => b.name).join(', ');
+        const batchIdsStr = selectedBatches.map(b => b.id).join(',');
+        batchPayload = {
+          batch_id: selectedBatches[0]?.id || null,
+          batch_ids: batchIdsStr,
+          batch_name: batchNames || 'All Batches',
+          class: batchNames || 'All Classes'
+        };
+      }
+
+      await api.updateNote(noteToPublish.id, batchPayload);
+
+      setNotes(prev => prev.map(n => n.id === noteToPublish.id ? { ...n, ...batchPayload } : n));
+      success(`Study note "${noteToPublish.title}" successfully published to ${batchPayload.batch_name}!`);
+      setIsPublishNoteModalOpen(false);
+      setNoteToPublish(null);
+    } catch (err) {
+      console.error('Failed to publish study note:', err);
+      error(err.message || 'Failed to publish note');
+    } finally {
+      setPublishingNote(false);
+    }
   };
 
   const handleConfirmDelete = async () => {
