@@ -3029,6 +3029,7 @@ class ApiService {
     const payload = {
       organization_id: Number(noteData.organization_id) || 1,
       batch_id: noteData.batch_id ? Number(noteData.batch_id) : null,
+      batch_ids: noteData.batch_ids || null,
       batch_name: noteData.batch_name || "All Batches",
       title: noteData.title,
       topic: noteData.topic,

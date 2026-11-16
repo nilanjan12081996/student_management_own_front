@@ -21,7 +21,8 @@ import {
   Sparkles,
   Download,
   X,
-  Send
+  Send,
+  Users
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useToast } from '../components/Toast';
@@ -36,6 +37,191 @@ const inferSemesterFromText = (text, fallback = '') => {
   const match2 = text.match(/(\d+)(?:st|nd|rd|th)?\s*sem/i);
   if (match2 && match2[1]) return `Semester ${match2[1]}`;
   return fallback;
+};
+
+// Reusable Multi-Batch Selector for Notes
+const NoteBatchSelector = ({ batches, selectedBatchIds, onChange }) => {
+  const isAll = selectedBatchIds?.includes('all');
+
+  const handleSelectAll = () => {
+    onChange(['all'], 'all', 'All Batches');
+  };
+
+  const handleClearAll = () => {
+    onChange([], null, '');
+  };
+
+  const handleToggleAll = () => {
+    if (isAll) {
+      handleClearAll();
+    } else {
+      handleSelectAll();
+    }
+  };
+
+  const handleToggleBatch = (bId) => {
+    let nextIds;
+    if (isAll) {
+      nextIds = [String(bId)];
+    } else if (selectedBatchIds?.includes(String(bId))) {
+      nextIds = (selectedBatchIds || []).filter((id) => id !== String(bId));
+    } else {
+      nextIds = [...(selectedBatchIds || []), String(bId)];
+    }
+    const selected = batches.filter((b) => nextIds.includes(String(b.id)));
+    const bName = selected.map((b) => b.name).join(', ');
+    onChange(nextIds, selected[0]?.id || null, bName || 'All Batches');
+  };
+
+  return (
+    <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem' }}>
+        <label className="form-label" style={{ margin: 0, fontWeight: 600 }}>
+          Target Batches (Access Restricted) *
+        </label>
+        <div style={{ display: 'flex', gap: '0.4rem' }}>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            style={{ fontSize: '0.75rem', padding: '0.2rem 0.55rem' }}
+            onClick={handleSelectAll}
+          >
+            Select All Batches
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            style={{ fontSize: '0.75rem', padding: '0.2rem 0.55rem' }}
+            onClick={handleClearAll}
+          >
+            Clear All
+          </button>
+        </div>
+      </div>
+
+      {/* Global All Batches toggle */}
+      <div
+        onClick={handleToggleAll}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          padding: '0.65rem 0.85rem',
+          borderRadius: '8px',
+          border: `1px solid ${isAll ? 'var(--primary)' : 'var(--border-subtle)'}`,
+          background: isAll ? 'rgba(99, 102, 241, 0.12)' : 'var(--bg-card)',
+          cursor: 'pointer',
+          marginBottom: '0.65rem',
+          transition: 'all 0.15s ease'
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={Boolean(isAll)}
+          onChange={() => {}}
+          style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+        />
+        <div>
+          <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '0.875rem' }}>
+            🌐 All Batches (Global Access)
+          </div>
+          <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
+            Study note will be accessible to every student across all cohorts.
+          </div>
+        </div>
+      </div>
+
+      {/* Checklist of specific cohorts */}
+      <div
+        style={{
+          maxHeight: '180px',
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.4rem',
+          paddingRight: '0.25rem',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: '8px',
+          padding: '0.5rem',
+          background: 'rgba(0, 0, 0, 0.12)'
+        }}
+      >
+        {batches.length === 0 ? (
+          <div style={{ padding: '0.75rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.825rem' }}>
+            No batches found. You can select "All Batches".
+          </div>
+        ) : (
+          batches.map((b) => {
+            const isChecked = !isAll && selectedBatchIds?.includes(String(b.id));
+            return (
+              <div
+                key={b.id}
+                onClick={() => handleToggleBatch(b.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.55rem 0.75rem',
+                  borderRadius: '6px',
+                  border: `1px solid ${isChecked ? 'var(--primary)' : 'rgba(255, 255, 255, 0.05)'}`,
+                  background: isChecked ? 'rgba(99, 102, 241, 0.12)' : 'var(--bg-card)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(isChecked)}
+                    onChange={() => {}}
+                    style={{ width: '15px', height: '15px', cursor: 'pointer' }}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '0.85rem' }}>
+                      Cohort: {b.name}
+                    </div>
+                    <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
+                      {b.subject || 'Standard Batch'} {b.join_code ? `• Code: ${b.join_code}` : ''}
+                    </div>
+                  </div>
+                </div>
+                {b.current_students_count !== undefined && (
+                  <span className="badge badge-secondary" style={{ fontSize: '0.7rem' }}>
+                    {b.current_students_count} students
+                  </span>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Summary box */}
+      <div
+        style={{
+          marginTop: '0.5rem',
+          padding: '0.45rem 0.75rem',
+          background: 'rgba(99, 102, 241, 0.06)',
+          border: '1px solid rgba(99, 102, 241, 0.2)',
+          borderRadius: '6px',
+          fontSize: '0.775rem',
+          color: 'var(--text-main)'
+        }}
+      >
+        <strong>Target Access: </strong>
+        {isAll ? (
+          <span style={{ color: 'var(--primary)' }}>🌐 All Batches (Open to all enrolled students)</span>
+        ) : (!selectedBatchIds || selectedBatchIds.length === 0) ? (
+          <span style={{ color: 'var(--warning)' }}>⚠️ No batch selected (please select at least one batch or All Batches)</span>
+        ) : (
+          <span style={{ color: 'var(--primary)' }}>
+            ✓ Assigned to {selectedBatchIds.length} batch(es):{' '}
+            {batches.filter((b) => selectedBatchIds.includes(String(b.id))).map((b) => b.name).join(', ')}
+          </span>
+        )}
+      </div>
+    </div>
+  );
 };
 
 export const NotesView = ({ user }) => {
@@ -81,6 +267,7 @@ export const NotesView = ({ user }) => {
     content_type: 'text',
     content_url: '',
     batch_id: 'all',
+    batch_ids: ['all'],
     batch_name: 'All Batches'
   });
 
@@ -128,6 +315,7 @@ export const NotesView = ({ user }) => {
       content_type: 'text',
       content_url: '',
       batch_id: 'all',
+      batch_ids: ['all'],
       batch_name: 'All Batches'
     });
     setSelectedNote(null);
@@ -416,7 +604,9 @@ export const NotesView = ({ user }) => {
     const matchesClass = classFilter === 'all' || n.class?.toLowerCase() === classFilter.toLowerCase();
     const matchesType = typeFilter === 'all' || n.content_type?.toLowerCase() === typeFilter.toLowerCase();
     const matchesBatch = isAdmin
-      ? batchFilter === 'all' || String(n.batch_id) === String(batchFilter)
+      ? batchFilter === 'all' ||
+        String(n.batch_id) === String(batchFilter) ||
+        (n.batch_ids && n.batch_ids.split(',').map(s => s.trim()).includes(String(batchFilter)))
       : true;
 
     return matchesSearch && matchesClass && matchesType && matchesBatch;
@@ -708,9 +898,15 @@ export const NotesView = ({ user }) => {
 
                 <div className="note-card-footer">
                   <div className="note-card-meta">
-                    <div className="note-meta-badge">
-                      <GraduationCap size={13} />
-                      <span>{note.batch_name || note.class || 'General'}</span>
+                    <div
+                      className="note-meta-badge"
+                      style={{ maxWidth: '220px', cursor: 'default' }}
+                      title={`Target Access: ${note.batch_name || note.class || 'All Batches'}`}
+                    >
+                      <Users size={13} color="var(--primary)" />
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {note.batch_name || note.class || 'All Batches'}
+                      </span>
                     </div>
                     {(() => {
                       const detected = inferSemesterFromText(`${note.batch_name || ''} ${note.class || ''}`) || note.semester;
@@ -790,33 +986,18 @@ export const NotesView = ({ user }) => {
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Target Batch (Access Restricted) *</label>
-            <select
-              className="form-control"
-              value={formData.batch_id}
-              onChange={(e) => {
-                const bId = e.target.value;
-                const found = batches.find((b) => String(b.id) === String(bId));
-                setFormData({
-                  ...formData,
-                  batch_id: bId,
-                  batch_name: found ? found.name : 'All Batches',
-                  class: found ? found.name : formData.class
-                });
-              }}
-            >
-              <option value="all">All Batches (Accessible to all enrolled students)</option>
-              {batches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  Cohort: {b.name} ({b.subject})
-                </option>
-              ))}
-            </select>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Only students enrolled in this selected batch will have permission to view this note.
-            </span>
-          </div>
+          <NoteBatchSelector
+            batches={batches}
+            selectedBatchIds={formData.batch_ids}
+            onChange={(newBatchIds, primaryId, bName) => {
+              setFormData(prev => ({
+                ...prev,
+                batch_ids: newBatchIds,
+                batch_id: primaryId,
+                batch_name: bName
+              }));
+            }}
+          />
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div className="form-group">
@@ -933,33 +1114,18 @@ export const NotesView = ({ user }) => {
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Target Batch (Access Restricted) *</label>
-            <select
-              className="form-control"
-              value={formData.batch_id}
-              onChange={(e) => {
-                const bId = e.target.value;
-                const found = batches.find((b) => String(b.id) === String(bId));
-                setFormData({
-                  ...formData,
-                  batch_id: bId,
-                  batch_name: found ? found.name : 'All Batches',
-                  class: found ? found.name : formData.class
-                });
-              }}
-            >
-              <option value="all">All Batches (Accessible to all enrolled students)</option>
-              {batches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  Cohort: {b.name} ({b.subject})
-                </option>
-              ))}
-            </select>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Only students enrolled in this selected batch will have permission to view this note.
-            </span>
-          </div>
+          <NoteBatchSelector
+            batches={batches}
+            selectedBatchIds={formData.batch_ids}
+            onChange={(newBatchIds, primaryId, bName) => {
+              setFormData(prev => ({
+                ...prev,
+                batch_ids: newBatchIds,
+                batch_id: primaryId,
+                batch_name: bName
+              }));
+            }}
+          />
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div className="form-group">
